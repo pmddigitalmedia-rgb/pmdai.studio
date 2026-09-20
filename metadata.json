@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix Remix Remix: Remix: Remix: Remix: Remix: PMD main editor",
+  "description": "Generate high-end real estate video reels, social media kits, and luxury marketing copy using AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
