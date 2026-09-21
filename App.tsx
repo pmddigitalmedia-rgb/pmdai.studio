@@ -14,7 +14,7 @@ import { CustomTool } from './components/CustomTool';
 import { SlideshowBuilder, SlideshowSlide, convertItemToSlide } from './components/SlideshowBuilder';
 import { editImageWeather, stringifyError, enhancePrompt, LuxuryMarketingPack, generateDawnToDuskVideo, generateSunnySkiesVideo, generateFurnitureBuildVideo, generateCustomVideo, generateVideoFromImage, generateSurgicalMask, generateDepersonalizeMask, analyzeImageVision } from './services/geminiService';
 import { resizeAndProcessImage, convertPdfToImage, getImageDimensions, createZipArchive, processImageForApi, applyWatermarkToDataUrl, normalizeImage, cropToRatio, sharpenImage, reprojectRectilinearTo360, project360ToRectilinear, dilateMask, extractVideoThumbnailAndDimensions, applySurgicalComposite, calculateSkyCoveragePercent } from './services/imageUtils';
-import { WEATHER_PRESETS, PANORAMA_PRESETS, VISUAL_STAGER_PRESETS, FURNITURE_STYLES, STAGING_ROOMS, STUDIO_TOOL_CATEGORIES } from './constants';
+import { WEATHER_PRESETS, PANORAMA_PRESETS, VISUAL_STAGER_PRESETS, FURNITURE_STYLES, STAGING_ROOMS, STUDIO_TOOL_CATEGORIES, BED_WALL_OPTIONS, getBedPlacementPromptDirective } from './constants';
 import { ImageItem, WeatherPreset, GeneratedAsset, SocialAssets, ImageItemConfig, PropertyData, ImagePreAnalysis } from './types';
 import { assetStore } from './utils/persistence';
 import { 
@@ -46,7 +46,7 @@ declare global {
 type SortOption = 'name' | 'date-modified' | 'date-added';
 type AppTab = 'studio' | 'social' | 'ai-analyst' | 'property-website';
 
-const TRANSFORMATIVE_DUPLICATE_TOOLS = ['furniture', 'style_swapper', 'p360_vstaging_3d', 'p360_style_swap', 'dawn_to_dusk_video', 'sunny_skies_video', 'custom_video', 'furniture_build_video', 'empty_room', 'p360_auto_declutter', 'auto_declutter', 'floor_replacer', 'ceiling_replacer'];
+const TRANSFORMATIVE_DUPLICATE_TOOLS = ['furniture', 'style_swapper', 'p360_vstaging_3d', 'p360_style_swap', 'dawn_to_dusk_video', 'sunny_skies_video', 'custom_video', 'furniture_build_video', 'p360_auto_declutter', 'floor_replacer', 'ceiling_replacer'];
 
 function App() {
   const [hoveredToolTooltip, setHoveredToolTooltip] = useState<{ preset: WeatherPreset; rect: { left: number; right: number; top: number; bottom: number; width: number; height: number } } | null>(null);
@@ -210,15 +210,6 @@ function App() {
     } else {
       base = [...WEATHER_PRESETS];
     }
-    
-    // Ensure Direct Declutter is positioned in front of Declutter
-    const directIdx = base.findIndex(p => p.id === 'declutter_direct');
-    const autoIdx = base.findIndex(p => p.id === 'auto_declutter');
-    if (directIdx !== -1 && autoIdx !== -1 && directIdx > autoIdx) {
-      const [directTool] = base.splice(directIdx, 1);
-      const newAutoIdx = base.findIndex(p => p.id === 'auto_declutter');
-      base.splice(newAutoIdx, 0, directTool);
-    }
 
     // Ensure Sun Drenched is positioned directly to the right of Outdoor Sun
     const sunnyIdx = base.findIndex(p => p.id === 'sunny_skies');
@@ -250,7 +241,8 @@ function App() {
       stagingStyle: FURNITURE_STYLES[0],
       swapStyle: FURNITURE_STYLES[0],
       stageDescriptor: '',
-      swapDescriptor: ''
+      swapDescriptor: '',
+      bedWallPlacement: 'auto'
     };
   });
 
@@ -270,6 +262,7 @@ function App() {
       swapStyle: globalStagingPrefs.swapStyle || FURNITURE_STYLES[0],
       stageDescriptor: globalStagingPrefs.stageDescriptor || '',
       swapDescriptor: globalStagingPrefs.swapDescriptor || '',
+      bedWallPlacement: globalStagingPrefs.bedWallPlacement || 'auto',
       emptyRoomFirst: false,
     };
   }, [activeItem, globalStagingPrefs]);
@@ -701,7 +694,7 @@ function App() {
     setItems(prev => prev.map(item => item.id === activeItemId ? { ...item, config: { ...item.config, ...updates } } : item));
     
     // Global Furniture Memory: Update global prefs if these are staging/swap fields
-    const stagingFields = ['stagingRoom', 'stagingStyle', 'stageDescriptor', 'swapStyle', 'swapDescriptor'];
+    const stagingFields = ['stagingRoom', 'stagingStyle', 'stageDescriptor', 'swapStyle', 'swapDescriptor', 'bedWallPlacement'];
     const relevantUpdates = Object.keys(updates).filter(k => stagingFields.includes(k));
     if (relevantUpdates.length > 0) {
       setGlobalStagingPrefs(prev => ({ ...prev, ...updates }));
@@ -768,9 +761,11 @@ function App() {
               newConfig.stagingRoom = globalStagingPrefs.stagingRoom;
               newConfig.stagingStyle = globalStagingPrefs.stagingStyle;
               newConfig.stageDescriptor = globalStagingPrefs.stageDescriptor;
+              newConfig.bedWallPlacement = globalStagingPrefs.bedWallPlacement || 'auto';
             } else if (toolId === 'style_swapper' || toolId === 'p360_style_swap') {
               newConfig.swapStyle = globalStagingPrefs.swapStyle;
               newConfig.swapDescriptor = globalStagingPrefs.swapDescriptor;
+              newConfig.bedWallPlacement = globalStagingPrefs.bedWallPlacement || 'auto';
             } else if (toolId === 'wall_unifier') {
               newConfig.wallColor = globalStagingPrefs.wallColor || '#f1f1f1';
             } else if (toolId === 'floor_replacer') {
@@ -824,9 +819,11 @@ function App() {
               newConfig.stagingRoom = globalStagingPrefs.stagingRoom;
               newConfig.stagingStyle = globalStagingPrefs.stagingStyle;
               newConfig.stageDescriptor = globalStagingPrefs.stageDescriptor;
+              newConfig.bedWallPlacement = globalStagingPrefs.bedWallPlacement || 'auto';
             } else if (toolId === 'style_swapper' || toolId === 'p360_style_swap') {
               newConfig.swapStyle = globalStagingPrefs.swapStyle;
               newConfig.swapDescriptor = globalStagingPrefs.swapDescriptor;
+              newConfig.bedWallPlacement = globalStagingPrefs.bedWallPlacement || 'auto';
             } else if (toolId === 'wall_unifier') {
               newConfig.wallColor = globalStagingPrefs.wallColor || '#f1f1f1';
             } else if (toolId === 'floor_replacer') {
@@ -932,6 +929,9 @@ function App() {
           if (analysis.suggestedStagingStyle && !updatedConfig.stagingStyle) {
             updatedConfig.stagingStyle = analysis.suggestedStagingStyle;
           }
+          if (analysis.suggestedBedWall && !updatedConfig.bedWallPlacement) {
+            updatedConfig.bedWallPlacement = analysis.suggestedBedWall;
+          }
           return {
             ...item,
             preAnalysis: analysis,
@@ -958,6 +958,9 @@ function App() {
         }
         if (item.preAnalysis.suggestedStagingStyle) {
           newConfig.stagingStyle = item.preAnalysis.suggestedStagingStyle;
+        }
+        if (item.preAnalysis.suggestedBedWall) {
+          newConfig.bedWallPlacement = item.preAnalysis.suggestedBedWall;
         }
         return {
           ...item,
@@ -1120,9 +1123,11 @@ function App() {
       let combinedPrompts = activePresets.map(preset => {
           let p = preset.id === 'custom_edit' && item.config.enhancedPrompt ? item.config.enhancedPrompt : preset.prompt;
           if (preset.id === 'furniture' || preset.id === 'p360_vstaging_3d') {
+            const room = item.config.stagingRoom || STAGING_ROOMS[0];
             p = p.replace('{style}', item.config.stagingStyle || FURNITURE_STYLES[0]);
-            p = p.replace('{room}', item.config.stagingRoom || STAGING_ROOMS[0]);
+            p = p.replace('{room}', room);
             if (item.config.stageDescriptor) p += ` Scene Context: ${item.config.stageDescriptor}`;
+            p += getBedPlacementPromptDirective(room, item.config.bedWallPlacement);
             p += ' [STRICT_WALL_COLOR_LOCK]: Absolutely DO NOT change, repaint, tint, or modify any wall colors, accent walls, or wall paint finishes. Keep all existing wall paint colors, sheen, and textures 100% identical to the source image. [STRICT_STRUCTURAL_PRESERVATION]: Absolutely zero added walls or moved walls. Keep all room boundaries, doorways, windows, and ceiling height 100% identical. Only place freestanding furniture, rugs, and decor on existing floor space.';
           }
           else if (preset.id === 'style_swapper' || preset.id === 'p360_style_swap') {
@@ -1131,6 +1136,7 @@ function App() {
             p = p.replace('{style}', chosenStyle);
             p += ` Target Room Type: ${chosenRoom}.`;
             if (item.config.swapDescriptor) p += ` Room Descriptor: ${item.config.swapDescriptor}`;
+            p += getBedPlacementPromptDirective(chosenRoom, item.config.bedWallPlacement);
             p += ' [STRICT_FLOOR_MATERIAL_AND_FINISH_LOCK]: ABSOLUTELY DO NOT change, replace, bleach, restain, re-tile, or alter ANY existing flooring material. Hardwood grain, plank width, plank direction, wood stain color, tile pattern, carpet texture, and grout MUST remain 100% identical and unchanged to the source image. Any newly uncovered floor where old rugs or furniture were removed MUST seamlessly match the surrounding floor material identically. [STRICT_WALL_COLOR_LOCK]: Absolutely DO NOT change, repaint, tint, or modify any wall colors, accent walls, or wall paint finishes. Keep all existing wall paint colors, sheen, and textures 100% identical to the source image. [STRICT_STRUCTURAL_PRESERVATION]: Absolutely zero added walls or moved walls. Keep all original room geometry and architectural boundaries 100% untouched. Only place freestanding furniture, rugs, and decor on existing floor space.';
           }
           else if (preset.id === 'wall_unifier') {
@@ -1144,9 +1150,12 @@ function App() {
             }
           }
           else if (preset.id === 'sunset') {
-            p = 'GOLDEN HOUR SUNSET REAL ESTATE PROTOCOL: [TASK]: Transform the daytime scene into a stunning, bright golden-hour sunset architectural photo. [ATMOSPHERIC LIGHTING & EXPOSURE]: Fill the sky with dramatic, vivid golden-hour sunset clouds featuring rich amber, warm gold, and soft pink/apricot tones. CRITICAL: Maintain bright ambient exposure and clear visibility across the entire property facade, roof, lawn, and driveway. STRICTLY FORBIDDEN: DO NOT render nighttime, dark blue hour, pitch black skies, or underexposed shadows. This is a bright golden-hour sunset shot with full daytime clarity and warm sunset warmth. [WINDOW & EXTERIOR LIGHTS]: Turn on warm, inviting architectural lighting inside windows and exterior porch/wall lights with a cozy 2700K golden glow. [STRUCTURAL PRESERVATION]: Keep the house facade, materials, walls, windows, rooflines, trim, doors, and surroundings 100% identical and intact.';
+            p = 'GOLDEN HOUR SUNSET REAL ESTATE PROTOCOL: [TASK]: Transform the daytime scene into a stunning, bright golden-hour sunset architectural photo. [ATMOSPHERIC LIGHTING & EXPOSURE]: Fill the sky with dramatic, vivid golden-hour sunset clouds featuring rich amber, warm gold, and soft pink/apricot tones. CRITICAL: Maintain bright ambient exposure and clear visibility across the entire property facade, roof, lawn, and driveway. STRICTLY FORBIDDEN: DO NOT render nighttime, dark blue hour, pitch black skies, or underexposed shadows. This is a bright golden-hour sunset shot with full daytime clarity and warm sunset warmth. [CRITICAL INTERIOR WINDOW ILLUMINATION]: Make sure most to all windows across the entire house facade, upper floors, lower floors, and side facades have warm interior lights turned ON inside, giving every window glass a luminous, cozy, welcoming 2700K-3000K golden amber ambient glow visible from the outside. Also turn on exterior entry coach lights, porch lights, sconces, and landscape pathway lights with a warm matching glow. [STRUCTURAL PRESERVATION]: Keep the house facade, materials, walls, windows, rooflines, trim, doors, and surroundings 100% identical and intact.';
           }
-          if (['auto_declutter', 'declutter_direct'].includes(preset.id)) {
+          else if (preset.id === 'empty_room') {
+            p = 'ARCHITECTURAL EMPTY ROOM PROTOCOL: [TASK]: Surgically and completely remove all furniture, sofas, chairs, tables, desks, beds, nightstands, dressers, area rugs, wall art, and loose decor to display an entirely vacant, empty space. [STRICT FLOOR LOCK]: ABSOLUTELY DO NOT change, replace, restain, bleach, or alter ANY existing flooring material. Hardwood grain, plank width, plank direction, wood stain color, tile pattern, and carpet texture MUST remain 100% identical and unchanged. Any uncovered floor area where furniture or rugs were removed MUST seamlessly match the surrounding original floor with photorealistic precision. [STRICT WALL COLOR & TRIM LOCK]: ABSOLUTELY DO NOT change, repaint, tint, or alter any wall colors, accent walls, wallpaper, moldings, baseboards, door trims, or ceilings. Keep all existing wall paint colors and textures 100% identical. [STRICT WINDOW & SKY IMMUTABILITY LOCK]: ABSOLUTELY DO NOT alter, repaint, or touch any windows, window frames, glass panes, or the outdoor scenery and sky visible through the windows. The outdoor sky, trees, and exterior scenery visible through windows MUST remain 100% FROZEN, UNTOUCHED, AND IDENTICAL to the source photo. [STRICT ARCHITECTURAL STRUCTURE LOCK]: Zero architectural changes. Keep all room boundaries, walls, doors, doorways, windows, and ceiling height 100% structurally identical.';
+          }
+          if (preset.id === 'declutter_direct') {
             return p;
           }
           if (preset.id === 'p360_auto_declutter') {
@@ -1281,7 +1290,7 @@ function App() {
       // TARGETED 1K RECTILINEAR CROP + REPROJECTION FOR 360 PANORAMAS:
       // Lowest API cost ($), 100% native resolution (up to 8K) unedited pixels preserved!
       const is360Pano = item.is360 || (item.dimensions && Math.abs(item.dimensions.width / item.dimensions.height - 2) < 0.2) || activePresets.some(p => p.id.startsWith('p360_'));
-      const isTargeted360Transform = is360Pano && activePresets.some(p => ['p360_vstaging_3d', 'p360_style_swap', 'p360_auto_declutter', 'furniture', 'style_swapper', 'auto_declutter'].includes(p.id));
+      const isTargeted360Transform = is360Pano && activePresets.some(p => ['p360_vstaging_3d', 'p360_style_swap', 'p360_auto_declutter', 'furniture', 'style_swapper'].includes(p.id));
 
       if (isTargeted360Transform) {
         const yaw = item.config.panoYaw ?? 0;
@@ -1374,12 +1383,12 @@ function App() {
         console.warn("Auto-sharpening failed, using unsharpened image:", sharpErr);
       }
 
-      const TRANSFORMATIVE_TOOLS = ['furniture', 'p360_vstaging_3d', 'style_swapper', 'p360_style_swap', 'auto_declutter', 'p360_auto_declutter', 'sunset', 'lush_lawn', 'seasonal_change', 'snow_removal', 'floor_replacer', 'ceiling_replacer', 'cable_remover'];
+      const TRANSFORMATIVE_TOOLS = ['furniture', 'p360_vstaging_3d', 'style_swapper', 'p360_style_swap', 'p360_auto_declutter', 'sunset', 'lush_lawn', 'seasonal_change', 'snow_removal', 'floor_replacer', 'ceiling_replacer', 'cable_remover'];
       const hasEmptyRoom = activePresets.some(p => p.id === 'empty_room');
       const hasWallUnifier = activePresets.some(p => p.id === 'wall_unifier');
       const hasStyleSwap = activePresets.some(p => ['style_swapper', 'p360_style_swap'].includes(p.id));
       const hasStagingOrSwap = activePresets.some(p => ['furniture', 'p360_vstaging_3d', 'style_swapper', 'p360_style_swap'].includes(p.id));
-      const hasDeclutter = activePresets.some(p => ['auto_declutter', 'p360_auto_declutter'].includes(p.id));
+      const hasDeclutter = activePresets.some(p => ['p360_auto_declutter', 'declutter_direct'].includes(p.id));
       const hasSunset = activePresets.some(p => p.id === 'sunset');
       const hasLushLawn = activePresets.some(p => p.id === 'lush_lawn');
       const hasSeasonShift = activePresets.some(p => p.id === 'seasonal_change');
@@ -1436,7 +1445,11 @@ function App() {
         errorMsg.includes("Quota") || 
         errorMsg.includes("quota") || 
         errorMsg.includes("429") || 
-        errorMsg.includes("RESOURCE_EXHAUSTED")
+        errorMsg.includes("RESOURCE_EXHAUSTED") ||
+        errorMsg.includes("leaked") ||
+        errorMsg.includes("API key was reported as leaked") ||
+        errorMsg.includes("403") ||
+        errorMsg.includes("API_KEY_INVALID")
       ) {
         setHasApiKey(false);
         handleOpenKeySelector();
@@ -1498,12 +1511,17 @@ function App() {
 
     setIsGenerating(true);
     const generationTasks = targets.map(async (item) => {
+      // When empty room tool is used, do not duplicate the image, perform the empty room in the one image
+      if (item.assignedTools.includes('empty_room')) {
+        return runGenerationForItem(item);
+      }
+
       const hasSunny = item.assignedTools.includes('sunny_skies');
       const hasDusk = item.assignedTools.includes('sunset');
       
       // SURGICAL SEQUENCE CHAIN: EMPTY -> STAGE
       const stagingTools = ['furniture', 'p360_vstaging_3d', 'style_swapper', 'p360_style_swap'];
-      const hasEmpty = item.assignedTools.includes('empty_room') || !!item.config?.emptyRoomFirst;
+      const hasEmptyChain = !!item.config?.emptyRoomFirst;
       const activeStagingTool = item.assignedTools.find(t => stagingTools.includes(t));
 
       if (hasSunny && hasDusk) {
@@ -1527,7 +1545,7 @@ function App() {
           return next;
         });
         return runGenerationForItem(duskItem, null, ['sunset']);
-      } else if (hasEmpty && activeStagingTool) {
+      } else if (hasEmptyChain && activeStagingTool) {
         // Implementation of EMPTY -> STAGE chain
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, assignedTools: [] } : i));
         const emptyId = Math.random().toString(36).substring(7);
@@ -1558,7 +1576,7 @@ function App() {
         return runGenerationForItem(stagedItem, null, [activeStagingTool]);
       } else {
         const needsDuplicate = item.autoDuplicate || item.assignedTools.some(tool => 
-          ['furniture', 'p360_vstaging_3d', 'style_swapper', 'p360_style_swap', 'virtual_depersonalize', 'lush_lawn', 'sunset', 'empty_room', 'auto_declutter', 'p360_auto_declutter', 'furniture_build_video', 'dawn_to_dusk_video', 'sunny_skies_video', 'custom_video'].includes(tool)
+          ['furniture', 'p360_vstaging_3d', 'style_swapper', 'p360_style_swap', 'virtual_depersonalize', 'lush_lawn', 'sunset', 'p360_auto_declutter', 'furniture_build_video', 'dawn_to_dusk_video', 'sunny_skies_video', 'custom_video'].includes(tool)
         );
         if (needsDuplicate) {
           const duplicateId = Math.random().toString(36).substring(7);
@@ -1898,10 +1916,12 @@ function App() {
         if (preset.id === 'furniture' || preset.id === 'p360_vstaging_3d') {
           prompt = prompt.replace('{style}', style).replace('{room}', room);
           if (descriptor) prompt += ` Scene Context: ${descriptor}`;
+          prompt += getBedPlacementPromptDirective(room, toolConfig?.bedWallPlacement || item.config.bedWallPlacement);
           prompt += ' [STRICT_WALL_COLOR_LOCK]: Absolutely DO NOT change, repaint, tint, or modify any wall colors, accent walls, or wall paint finishes. Keep all existing wall paint colors and textures 100% identical to the source photo. [STRICT_STRUCTURAL_PRESERVATION]: Zero added walls, zero moved walls. Preserve all existing walls, doors, windows, and boundaries 100% untouched. Only place freestanding furniture, rugs, and decor on existing floor space.';
         } else if (preset.id === 'style_swapper' || preset.id === 'p360_style_swap') {
           prompt = prompt.replace('{style}', style);
           if (descriptor) prompt += ` Room Descriptor: ${descriptor}`;
+          prompt += getBedPlacementPromptDirective(room, toolConfig?.bedWallPlacement || item.config.bedWallPlacement);
           prompt += ' [STRICT_FLOOR_LOCK]: ABSOLUTELY DO NOT change, restain, bleach, or alter any existing flooring material, wood planks, stain, tile, or carpet. Keep existing flooring 100% identical. [STRICT_WALL_COLOR_LOCK]: Absolutely DO NOT change, repaint, tint, or modify any wall colors, accent walls, or wall paint finishes. Keep all wall colors and textures 100% identical to the source image. [STRICT_STRUCTURAL_PRESERVATION]: Zero added walls, zero moved walls. Preserve all original architectural geometry 100% unchanged. Only place freestanding furniture, rugs, and decor on existing floor space.';
         } else if (preset.id === 'custom_edit' && toolConfig?.customPrompt) {
           prompt = toolConfig.customPrompt;
@@ -1919,7 +1939,7 @@ function App() {
                 const { dilatedDataUrl, coverageRatio, isCoverageValid } = await dilateMask(rawMaskUrl, 20);
                 if (isCoverageValid) {
                   targetMask = dilatedDataUrl.split(',')[1];
-                  prompt = "ARCHITECTURAL DECLUTTER: Surgically remove all loose clutter, mess, cables, boxes, dishes, and trash. Inpaint clean continuous architectural floor and surfaces matching surroundings.";
+                  prompt = "ARCHITECTURAL DECLUTTER: Surgically remove all loose clutter, mess, cables, boxes, dishes, and trash. Inpaint clean continuous architectural floor and surfaces matching surroundings. STRICT (ZERO TOLERANCE) FLOOR, WALL & STRUCTURE LOCK: Absolutely DO NOT change floor material, wood stain, tile, or wall paint color. Absolutely DO NOT alter room structure, walls, doorways, windows, or ceilings.";
                 }
               } catch (err) {
                 console.warn("Clutter mask generation failed:", err);
@@ -1927,7 +1947,7 @@ function App() {
             }
           } else {
             // Full room depopulation mode: empty room, remove everything with enhanced guidance
-            prompt = "ARCHITECTURAL 360 DECLUTTER: Completely vacant, empty room. All furniture, sofas, chairs, tables, desks, beds, rugs, carpets, boxes, electronics, and clutter are completely removed. Pristine, clean, continuous architectural hardwood floor and plain walls. Original architectural windows, ceilings, and room perspective strictly preserved.";
+            prompt = "ARCHITECTURAL 360 DECLUTTER: Completely vacant, empty room. All furniture, sofas, chairs, tables, desks, beds, rugs, carpets, boxes, electronics, and clutter are completely removed. Pristine, clean, continuous architectural hardwood floor and plain walls. Original architectural windows, ceilings, and room perspective strictly preserved. STRICT (ZERO TOLERANCE) FLOOR, WALL & STRUCTURE LOCK: Absolutely DO NOT change existing floor material, wood stain, tile pattern, or wall paint color. Absolutely DO NOT alter any walls or room structure.";
             targetMask = null;
           }
         }
@@ -1979,7 +1999,7 @@ function App() {
         // Step 4: Apply watermark if transformative
         if (['p360_vstaging_3d', 'p360_style_swap', 'furniture', 'style_swapper'].includes(preset.id)) {
           final360Url = await applyWatermarkToDataUrl(final360Url, true, true, "ai virtually staged");
-        } else if (['p360_auto_declutter', 'auto_declutter'].includes(preset.id)) {
+        } else if (['p360_auto_declutter', 'declutter_direct'].includes(preset.id)) {
           final360Url = await applyWatermarkToDataUrl(final360Url, true, true, "digitally decluttered");
         }
 
@@ -2150,9 +2170,9 @@ function App() {
                     </svg>
                 </div>
                 <div className="space-y-3">
-                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Advanced Tools Locked</h2>
+                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Gemini API Key Required</h2>
                     <p className="text-slate-400 text-sm leading-relaxed">
-                        High-fidelity weather transformations and video generation require your own paid-tier API key because the free shared quota was exceeded.
+                        Your Gemini API key needs to be configured or replaced (the current key was reported as leaked or quota was exhausted).
                     </p>
                 </div>
 
@@ -2379,7 +2399,7 @@ function App() {
                               <div className={`grid ${category.toolIds.length === 1 ? 'grid-cols-1' : 'grid-cols-3'} gap-2`}>
                                 {categoryPresets.map((preset) => {
                                   const isAssigned = (activeItem?.assignedTools.includes(preset.id)) || (!activeItem && stagingPreviewTool === preset.id);
-                                  const hasWatermark = preset.hasAiWatermark || ['furniture', 'style_swapper', 'p360_vstaging_3d', 'p360_style_swap', 'auto_declutter', 'p360_auto_declutter', 'sunset'].includes(preset.id);
+                                  const hasWatermark = preset.hasAiWatermark || ['furniture', 'style_swapper', 'p360_vstaging_3d', 'p360_style_swap', 'p360_auto_declutter', 'sunset'].includes(preset.id);
 
                                   return (
                                     <div key={preset.id} className="relative group/toolbtn h-full">
@@ -2484,6 +2504,57 @@ function App() {
                                         />
                                       </div>
 
+                                      {/* Bed Wall Placement (Shown when Bedroom is selected) */}
+                                      {((currentStagingConfig.stagingRoom || '').toLowerCase().includes('bed')) && (
+                                        <div className="p-2.5 rounded-xl bg-slate-900/95 border border-rose-500/30 space-y-2">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-rose-300 uppercase tracking-wider">
+                                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-rose-400">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                                              </svg>
+                                              Bed Wall Placement
+                                            </div>
+                                            <span className="text-[7px] font-bold text-rose-300 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded uppercase">
+                                              Window Guard Active
+                                            </span>
+                                          </div>
+
+                                          <div className="space-y-1">
+                                            <select 
+                                              value={currentStagingConfig.bedWallPlacement || 'auto'} 
+                                              onChange={(e) => handleUpdateStagingConfig({ bedWallPlacement: e.target.value })} 
+                                              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-2 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-rose-500 appearance-none cursor-pointer"
+                                            >
+                                              {BED_WALL_OPTIONS.map(opt => (
+                                                <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+
+                                          {activeItem?.preAnalysis?.suggestedBedWall && (
+                                            <div className="flex items-center justify-between text-[8px] bg-rose-950/40 border border-rose-500/20 px-2 py-1 rounded-lg text-rose-200">
+                                              <span>AI Vision suggests: <strong className="text-white capitalize">{activeItem.preAnalysis.suggestedBedWall.replace('_', ' ')}</strong></span>
+                                              {currentStagingConfig.bedWallPlacement !== activeItem.preAnalysis.suggestedBedWall && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleUpdateStagingConfig({ bedWallPlacement: activeItem.preAnalysis?.suggestedBedWall })}
+                                                  className="text-rose-300 hover:text-white underline font-bold ml-2 cursor-pointer"
+                                                >
+                                                  Apply
+                                                </button>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          <div className="flex items-start gap-1.5 text-[7.5px] text-slate-400 leading-tight">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 flex-shrink-0 text-emerald-400 mt-0.5">
+                                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                            </svg>
+                                            <span>Strict protocol: Bed anchors against solid wall and will NEVER block, overlap, or touch windows.</span>
+                                          </div>
+                                        </div>
+                                      )}
+
                                       <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-700/70 hover:border-cyan-500/40 transition-colors">
                                         <label className="flex items-start gap-2 cursor-pointer select-none">
                                           <div className="relative flex items-center mt-0.5">
@@ -2573,6 +2644,57 @@ function App() {
                                           className="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-2 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-fuchsia-500" 
                                         />
                                       </div>
+
+                                      {/* Bed Wall Placement (Shown when Bedroom is selected) */}
+                                      {((currentStagingConfig.stagingRoom || '').toLowerCase().includes('bed')) && (
+                                        <div className="p-2.5 rounded-xl bg-slate-900/95 border border-fuchsia-500/30 space-y-2">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-fuchsia-300 uppercase tracking-wider">
+                                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-fuchsia-400">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                                              </svg>
+                                              Bed Wall Placement
+                                            </div>
+                                            <span className="text-[7px] font-bold text-fuchsia-300 bg-fuchsia-500/15 border border-fuchsia-500/30 px-1.5 py-0.5 rounded uppercase">
+                                              Window Guard Active
+                                            </span>
+                                          </div>
+
+                                          <div className="space-y-1">
+                                            <select 
+                                              value={currentStagingConfig.bedWallPlacement || 'auto'} 
+                                              onChange={(e) => handleUpdateStagingConfig({ bedWallPlacement: e.target.value })} 
+                                              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-2 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-fuchsia-500 appearance-none cursor-pointer"
+                                            >
+                                              {BED_WALL_OPTIONS.map(opt => (
+                                                <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+
+                                          {activeItem?.preAnalysis?.suggestedBedWall && (
+                                            <div className="flex items-center justify-between text-[8px] bg-fuchsia-950/40 border border-fuchsia-500/20 px-2 py-1 rounded-lg text-fuchsia-200">
+                                              <span>AI Vision suggests: <strong className="text-white capitalize">{activeItem.preAnalysis.suggestedBedWall.replace('_', ' ')}</strong></span>
+                                              {currentStagingConfig.bedWallPlacement !== activeItem.preAnalysis.suggestedBedWall && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleUpdateStagingConfig({ bedWallPlacement: activeItem.preAnalysis?.suggestedBedWall })}
+                                                  className="text-fuchsia-300 hover:text-white underline font-bold ml-2 cursor-pointer"
+                                                >
+                                                  Apply
+                                                </button>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          <div className="flex items-start gap-1.5 text-[7.5px] text-slate-400 leading-tight">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 flex-shrink-0 text-emerald-400 mt-0.5">
+                                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                            </svg>
+                                            <span>Strict protocol: Bed anchors against solid wall and will NEVER block, overlap, or touch windows.</span>
+                                          </div>
+                                        </div>
+                                      )}
 
                                       <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/20 text-emerald-400">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 flex-shrink-0 text-emerald-400"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>
@@ -3059,9 +3181,6 @@ function App() {
                           onToggleAutoDuplicate={handleToggleAutoDuplicate} 
                           onSharpen={handleSharpenImage} 
                           onExtractFrame={handleExtractVideoFrame}
-                          onPreAnalyze={handlePreAnalyzeSingle}
-                          onApplyPreAnalysisRecommendations={handleApplyPreAnalysisRecommendations}
-                          onTogglePreAnalysisTool={handleTogglePreAnalysisTool}
                           isDownloading={downloadingId === item.id} 
                         />
                       ))}
@@ -3329,7 +3448,7 @@ function App() {
               />
               <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/10 mb-2">
                 <span className="text-xs font-black text-white tracking-wide break-words">{hoveredToolTooltip.preset.label}</span>
-                {(hoveredToolTooltip.preset.hasAiWatermark || ['furniture', 'style_swapper', 'p360_vstaging_3d', 'p360_style_swap', 'auto_declutter', 'p360_auto_declutter', 'sunset'].includes(hoveredToolTooltip.preset.id)) && (
+                {(hoveredToolTooltip.preset.hasAiWatermark || ['furniture', 'style_swapper', 'p360_vstaging_3d', 'p360_style_swap', 'p360_auto_declutter', 'sunset'].includes(hoveredToolTooltip.preset.id)) && (
                   <span className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 border border-amber-300 flex items-center gap-1 shadow-sm">
                     <svg className="w-2 h-2 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg>
                     +AI Watermark

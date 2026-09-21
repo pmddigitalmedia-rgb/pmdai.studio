@@ -367,6 +367,37 @@ export const STAGING_ROOMS = [
   'Media Room'
 ];
 
+export const BED_WALL_OPTIONS = [
+  { id: 'auto', label: 'Auto (Best Solid Wall - Zero Windows)' },
+  { id: 'back', label: 'Back / Center Solid Wall' },
+  { id: 'left', label: 'Left Solid Wall' },
+  { id: 'right', label: 'Right Solid Wall' },
+  { id: 'opposite_windows', label: 'Opposite Windows (Preserve Views)' },
+] as const;
+
+export type BedWallOption = typeof BED_WALL_OPTIONS[number]['id'];
+
+export const getBedPlacementPromptDirective = (roomType?: string, wallPlacement?: string): string => {
+  const isBedroom = (roomType || '').toLowerCase().includes('bed');
+  if (!isBedroom) return '';
+
+  let directive = ' [BED_PLACEMENT_AND_WINDOW_PROTECTION_PROTOCOL]: (1) SOLID WALL ANCHOR: The bed and headboard MUST be anchored against the primary solid, uninterrupted wall that has NO windows or glass openings. (2) STRICT WINDOW & NATURAL LIGHT PRESERVATION: Absolutely NEVER place the bed, headboard, or nightstands in front of, overlapping, or partially obstructing ANY window, sliding glass door, or architectural opening. All windows, window frames, glass panes, outdoor views, and natural incoming light must remain 100% clear and completely unobstructed. (3) SYMMETRY & CLEARANCES: Center the bed symmetrically along the chosen solid wall with flanking nightstands and bedside lamps, maintaining clear walking pathways to all doorways and closets.';
+
+  if (wallPlacement === 'back') {
+    directive += ' [BED_WALL_SELECTION]: SPECIFIC WALL MANDATE: Position the headboard of the bed centered firmly against the BACK / REAR solid wall, keeping all windows completely unobstructed.';
+  } else if (wallPlacement === 'left') {
+    directive += ' [BED_WALL_SELECTION]: SPECIFIC WALL MANDATE: Position the headboard of the bed centered firmly against the LEFT solid wall, keeping all windows completely unobstructed.';
+  } else if (wallPlacement === 'right') {
+    directive += ' [BED_WALL_SELECTION]: SPECIFIC WALL MANDATE: Position the headboard of the bed centered firmly against the RIGHT solid wall, keeping all windows completely unobstructed.';
+  } else if (wallPlacement === 'opposite_windows') {
+    directive += ' [BED_WALL_SELECTION]: SPECIFIC WALL MANDATE: Position the headboard of the bed centered against the solid wall directly OPPOSITE the room windows, preserving maximum natural light flow and exterior views.';
+  } else {
+    directive += ' [BED_WALL_SELECTION]: Automatically place the bed against the single longest uninterrupted solid wall that has zero windows.';
+  }
+
+  return directive;
+};
+
 export const WEATHER_PRESETS: WeatherPreset[] = [
   {
     id: 'sunny_skies',
@@ -394,19 +425,11 @@ export const WEATHER_PRESETS: WeatherPreset[] = [
   },
   {
     id: 'declutter_direct',
-    label: 'Direct Declutter',
-    description: 'Deeply declutters all non-furniture items, piles, and surface mess directly in-place with no watermark and no duplicate image. Recommended for minor decluttering.',
-    prompt: 'DEEP TOTAL DECLUTTER PROTOCOL: [TASK]: Surgically and completely eliminate all clutter, mess, and non-permanent items from the room. Remove all items from all tables, countertops, desks, islands, nightstands, and shelves. Remove all floor clutter including clothes, shoes, bags, boxes, storage bins, laundry baskets, pet accessories, workout equipment, toys, and cords. Remove all loose cables, wires, charging cords, trash, papers, mail, dishes, glassware, cups, bottles, containers, toiletries, cleaning supplies, and loose countertop clutter. [SURFACE RESTORATION]: Clean, clear, empty, model-home ready surfaces and open, spotless floors matching surrounding materials with photographic precision. [STRICT PRESERVATION]: Keep original walls, ceilings, windows, doorways, flooring type, and all primary large furniture (sofas, beds, dining tables, kitchen cabinetry) completely in place.',
-    icon: 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09-3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z',
-    color: 'bg-teal-600 text-white border-teal-400'
-  },
-  {
-    id: 'auto_declutter',
-    label: 'Declutter',
-    description: 'Deletes all non-furniture items, surface mess, and floor clutter to reveal a pristine "Model Home" state. Includes MLS-compliant AI watermark.',
-    prompt: 'DEEP TOTAL DECLUTTER PROTOCOL: [TASK]: Surgically and completely eliminate all clutter, mess, and non-permanent items from the room. Remove all items from all tables, countertops, desks, islands, nightstands, and shelves. Remove all floor clutter including clothes, shoes, bags, boxes, storage bins, laundry baskets, pet accessories, workout equipment, toys, and cords. Remove all loose cables, wires, charging cords, trash, papers, mail, dishes, glassware, cups, bottles, containers, toiletries, cleaning supplies, and loose countertop clutter. [STRICT_FLOOR_AND_WALL_LOCK]: ABSOLUTELY DO NOT change, replace, bleach, restain, or alter ANY existing flooring material, wood planks, wood grain, stain color, tile, carpet, or grout. The floor where clutter was lifted MUST seamlessly match the exact existing floor type, plank direction, color, and finish 100% identically. ABSOLUTELY DO NOT alter, repaint, or change existing wall paint colors, accent walls, or wall textures. [ZERO_WEATHER_ALTERATION]: Strictly DO NOT add snow, frost, ice, or white ground cover to any interior or exterior areas. [STRICT PRESERVATION]: Keep original walls, ceilings, windows, doorways, exact flooring material, and all primary large furniture (sofas, beds, dining tables, kitchen cabinetry) completely in place.',
-    icon: 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09-3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z',
-    color: 'bg-emerald-600 text-white border-emerald-400',
+    label: 'De Clutter',
+    description: 'Deeply declutters all non-furniture items, piles, and surface mess directly in-place. Includes MLS-compliant AI watermark.',
+    prompt: 'DEEP TOTAL DECLUTTER PROTOCOL: [TASK]: Surgically and completely eliminate all clutter, mess, and non-permanent items from the room. Remove all items from all tables, countertops, desks, islands, nightstands, and shelves. Remove all floor clutter including clothes, shoes, bags, boxes, storage bins, laundry baskets, pet accessories, workout equipment, toys, and cords. Remove all loose cables, wires, charging cords, trash, papers, mail, dishes, glassware, cups, bottles, containers, toiletries, cleaning supplies, and loose countertop clutter. [SURFACE RESTORATION]: Clean, clear, empty, model-home ready surfaces and open, spotless floors matching surrounding materials with photographic precision. [STRICT_FLOOR_LOCK]: ABSOLUTELY DO NOT change, replace, bleach, restain, re-tile, or mutate ANY existing flooring material. Hardwood grain, plank width, plank direction, wood stain color, tile pattern, carpet texture, and grout MUST remain 100% identical and unchanged to the source photo. The uncovered floor where clutter was lifted MUST seamlessly match the surrounding floor material with photorealistic precision. NEVER change hardwood to carpet, carpet to hardwood, or alter tile or wood tones. [STRICT_WALL_COLOR_AND_TRIM_LOCK]: ABSOLUTELY DO NOT change, repaint, tint, lighten, darken, or shift ANY wall color, wall paint, wallpaper, accent walls, moldings, baseboards, door trims, or ceilings. All walls, trims, and paint finishes must remain 100% strictly identical in color and texture to the original photo. [STRICT_ROOM_STRUCTURE_PRESERVATION]: Absolutely zero architectural changes. Keep all room boundaries, walls, doorways, door frames, windows, window panes, ceiling height, pillars, and built-ins 100% structurally identical. Keep all primary large furniture (sofas, beds, dining tables, kitchen cabinetry) completely in place.',
+    icon: 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09-3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0 3.09-3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z',
+    color: 'bg-teal-600 text-white border-teal-400',
     hasAiWatermark: true
   },
   {
@@ -473,7 +496,7 @@ export const WEATHER_PRESETS: WeatherPreset[] = [
     id: 'sunset',
     label: 'Day to Dusk',
     description: 'Transforms daylight scenes into a vibrant golden-hour sunset with warm skies, bright ambient illumination, and soft window glows. Includes MLS-compliant AI watermark.',
-    prompt: 'GOLDEN HOUR SUNSET REAL ESTATE PROTOCOL: [TASK]: Transform the daytime scene into a stunning, bright golden-hour sunset architectural photo. [ATMOSPHERIC LIGHTING & EXPOSURE]: Fill the sky with dramatic, vivid golden-hour sunset clouds featuring rich amber, warm gold, and soft pink/apricot tones. CRITICAL: Maintain bright ambient exposure and clear visibility across the entire property facade, roof, lawn, and driveway. STRICTLY FORBIDDEN: DO NOT render nighttime, dark blue hour, pitch black skies, or underexposed shadows. This is a bright golden-hour sunset shot with full daytime clarity and warm sunset warmth. [WINDOW & EXTERIOR LIGHTS]: Turn on warm, inviting architectural lighting inside windows and exterior porch/wall lights with a cozy 2700K golden glow. [STRUCTURAL PRESERVATION]: Keep the house facade, materials, walls, windows, rooflines, trim, doors, and surroundings 100% identical and intact.',
+    prompt: 'GOLDEN HOUR SUNSET REAL ESTATE PROTOCOL: [TASK]: Transform the daytime scene into a stunning, bright golden-hour sunset architectural photo. [ATMOSPHERIC LIGHTING & EXPOSURE]: Fill the sky with dramatic, vivid golden-hour sunset clouds featuring rich amber, warm gold, and soft pink/apricot tones. CRITICAL: Maintain bright ambient exposure and clear visibility across the entire property facade, roof, lawn, and driveway. STRICTLY FORBIDDEN: DO NOT render nighttime, dark blue hour, pitch black skies, or underexposed shadows. This is a bright golden-hour sunset shot with full daytime clarity and warm sunset warmth. [CRITICAL INTERIOR WINDOW ILLUMINATION]: Make sure most to all windows across the entire house facade, upper floors, lower floors, and side facades have warm interior lights turned ON inside, giving every window glass a luminous, cozy, welcoming 2700K-3000K golden amber ambient glow visible from the outside. Also turn on exterior entry coach lights, porch lights, sconces, and landscape pathway lights with a warm matching glow. [STRUCTURAL PRESERVATION]: Keep the house facade, materials, walls, windows, rooflines, trim, doors, and surroundings 100% identical and intact.',
     icon: 'M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z',
     color: 'bg-orange-50 text-white border-orange-400',
     hasAiWatermark: true
@@ -491,7 +514,7 @@ export const WEATHER_PRESETS: WeatherPreset[] = [
     id: 'empty_room',
     label: 'Empty Room',
     description: 'Surgically removes all furniture, decor, and rugs to reveal the architectural blank canvas.',
-    prompt: 'ARCHITECTURAL EMPTY ROOM PROTOCOL: [TASK]: Identify and surgically remove all furniture, decor, wall art, and area rugs from the scene. [ACTION]: Inpaint the revealed floor and wall areas with textures that perfectly match the existing architectural materials (e.g., hardwood, carpet, paint). [INTEGRITY]: Do not alter walls, windows, doors, or fixed lighting fixtures. The goal is to show the property as a vacant, move-in ready space.',
+    prompt: 'ARCHITECTURAL EMPTY ROOM PROTOCOL: [TASK]: Surgically and completely remove all furniture, sofas, chairs, tables, desks, beds, nightstands, dressers, area rugs, wall art, and loose decor to display an entirely vacant, empty space. [STRICT FLOOR LOCK]: ABSOLUTELY DO NOT change, replace, restain, bleach, or alter ANY existing flooring material. Hardwood grain, plank width, plank direction, wood stain color, tile pattern, and carpet texture MUST remain 100% identical and unchanged. Any uncovered floor area where furniture or rugs were removed MUST seamlessly match the surrounding original floor with photorealistic precision. [STRICT WALL COLOR & TRIM LOCK]: ABSOLUTELY DO NOT change, repaint, tint, or alter any wall colors, accent walls, wallpaper, moldings, baseboards, door trims, or ceilings. Keep all existing wall paint colors and textures 100% identical. [STRICT WINDOW & SKY IMMUTABILITY LOCK]: ABSOLUTELY DO NOT alter, repaint, or touch any windows, window frames, glass panes, or the outdoor scenery and sky visible through the windows. The outdoor sky, trees, and exterior scenery visible through windows MUST remain 100% FROZEN, UNTOUCHED, AND IDENTICAL to the source photo. [STRICT ARCHITECTURAL STRUCTURE LOCK]: Zero architectural changes. Keep all room boundaries, walls, doors, doorways, windows, and ceiling height 100% structurally identical.',
     icon: 'M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9',
     color: 'bg-slate-200 text-slate-800 border-slate-300'
   },
@@ -600,7 +623,7 @@ export const STUDIO_TOOL_CATEGORIES: StudioToolCategory[] = [
     title: 'Declutter & Cleanup',
     description: 'Direct in-place decluttering, magic eraser, cable removal, and depersonalization',
     badge: 'Removal',
-    toolIds: ['declutter_direct', 'auto_declutter', 'object_removal', 'cable_remover', 'virtual_depersonalize']
+    toolIds: ['declutter_direct', 'object_removal', 'cable_remover', 'virtual_depersonalize']
   },
   {
     id: 'architectural_finishes',
@@ -660,8 +683,8 @@ export const PANORAMA_PRESETS: WeatherPreset[] = [
     id: 'p360_auto_declutter',
     label: '360 Declutter',
     description: 'Deletes all clutter and furniture in 360 view for an empty architectural state. Includes MLS-compliant AI watermark.',
-    prompt: 'ARCHITECTURAL 360 DECLUTTER PROTOCOL: [TASK]: Surgically and completely remove all furniture, clutter, tables, chairs, desks, beds, rugs, carpets, decorations, electronics, wires, and personal items. [STRICT_FLOOR_AND_WALL_LOCK]: ABSOLUTELY DO NOT change, replace, or alter the existing floor material, plank grain, wood stain, or tile pattern. Uncovered floor areas must seamlessly match adjacent visible flooring 100% identically. Absolutely DO NOT alter, repaint, or change wall colors. [ZERO_WEATHER_ALTERATION]: Do NOT add snow, ice, or white ground covering. Seamlessly reveal and inpaint clean, pristine architectural floor and wall textures matching the surroundings with photorealistic precision. Preserve structural walls, ceilings, windows, doorways, and spherical geometry. Completely vacant, empty, move-in ready architectural room.',
-    icon: 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09-3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0 3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z',
+    prompt: 'ARCHITECTURAL 360 DECLUTTER PROTOCOL: [TASK]: Surgically and completely remove all furniture, clutter, tables, chairs, desks, beds, rugs, carpets, decorations, electronics, wires, and personal items. [STRICT_FLOOR_LOCK]: ABSOLUTELY DO NOT change, replace, restain, bleach, or alter ANY existing flooring material, wood planks, wood grain, stain color, tile pattern, carpet texture, or grout. The floor where clutter or furniture was removed MUST seamlessly match the existing flooring 100% identically. NEVER change hardwood to carpet, carpet to hardwood, or alter tile/wood tones. [STRICT_WALL_COLOR_AND_TRIM_LOCK]: ABSOLUTELY DO NOT change, repaint, tint, lighten, darken, or shift ANY wall colors, accent walls, wallpaper, moldings, baseboards, door trims, or ceilings. All wall paint colors and textures must remain 100% strictly identical to the source photo. [STRICT_ROOM_STRUCTURE_PRESERVATION]: Absolutely zero architectural changes. Keep all room boundaries, walls, doorways, door frames, windows, window panes, columns, and ceiling height 100% structurally identical. [ZERO_WEATHER_ALTERATION]: Do NOT add snow, ice, or white ground covering. Seamlessly reveal and inpaint clean, pristine architectural floor and wall textures matching the surroundings with photorealistic precision. Preserve spherical geometry.',
+    icon: 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09-3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z',
     color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     hasAiWatermark: true
   },
@@ -782,7 +805,7 @@ export const CREDIT_PACKS: CreditPack[] = [
     features: [
       '5,400 AI Credits (~180 Photo Edits)',
       'Virtual Staging & Style Swapper (30-60 credits)',
-      'Sunny Skies & Direct Declutter (30 credits)',
+      'Sunny Skies & De Clutter (30 credits)',
       '360 Panorama Restyling (90 credits)',
       'Credits never expire'
     ]

@@ -34,6 +34,7 @@ export interface ImageItemConfig {
   stagingRoom?: string;
   stagingStyle?: string;
   stageDescriptor?: string;
+  bedWallPlacement?: string; // 'auto' | 'back' | 'left' | 'right' | 'opposite_windows'
   swapStyle?: string;
   swapDescriptor?: string;
   wallColor?: string;
@@ -68,6 +69,7 @@ export interface ImagePreAnalysis {
   toolRationale?: Record<string, string>;
   suggestedStagingStyle?: string;
   suggestedStagingRoom?: string;
+  suggestedBedWall?: string; // e.g. "back", "left", "right", "opposite_windows"
   skyPercentage?: number; // Estimated percentage of visible open sky (0-100)
   hasWindows?: boolean;   // Whether windows/sliding glass doors with outdoor view are present
   summary: string;

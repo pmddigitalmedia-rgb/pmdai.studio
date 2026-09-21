@@ -1,6 +1,6 @@
 
 import { ImageItem, WeatherPreset } from '../types';
-import { WEATHER_PRESETS, PANORAMA_PRESETS, VISUAL_STAGER_PRESETS, FURNITURE_STYLES, STAGING_ROOMS, TOOL_ENGINE_COSTS } from '../constants';
+import { WEATHER_PRESETS, PANORAMA_PRESETS, VISUAL_STAGER_PRESETS, TOOL_ENGINE_COSTS } from '../constants';
 import React, { useState, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 
@@ -23,9 +23,6 @@ interface ImageGridItemProps {
   onToggleAutoDuplicate?: (id: string) => void;
   onSharpen?: (id: string, e: React.MouseEvent) => void;
   onExtractFrame?: (id: string, e?: React.MouseEvent) => void;
-  onPreAnalyze?: (id: string, e?: React.MouseEvent) => void;
-  onApplyPreAnalysisRecommendations?: (id: string) => void;
-  onTogglePreAnalysisTool?: (itemId: string, toolId: string) => void;
   isDownloading: boolean;
 }
 
@@ -48,16 +45,11 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
   onToggleAutoDuplicate,
   onSharpen,
   onExtractFrame,
-  onPreAnalyze,
-  onApplyPreAnalysisRecommendations,
-  onTogglePreAnalysisTool,
   isDownloading
 }) => {
   const { isAdmin } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [isDragTarget, setIsDragTarget] = useState(false);
-  const [showAnalysisDetails, setShowAnalysisDetails] = useState(false);
-  const [isAnalysisVisible, setIsAnalysisVisible] = useState(true);
   const currentAsset = item.currentHistoryIndex >= 0 ? item.history[item.currentHistoryIndex] : null;
   
   // Show original only when hovering AND there is an edited asset to compare against
@@ -197,7 +189,7 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
                   <span className="text-[8px] font-bold text-white opacity-50 uppercase tracking-wider">AI Virtually Staged</span>
                 </>
               )}
-              {activeAssetTools.some(id => ['auto_declutter', 'p360_auto_declutter'].includes(id)) && (
+              {activeAssetTools.some(id => ['auto_declutter', 'p360_auto_declutter', 'declutter_direct'].includes(id)) && (
                 <>
                   <span className="text-[8px] text-white/30">•</span>
                   <span className="text-[8px] font-bold text-white opacity-50 uppercase tracking-wider">Digitally Decluttered</span>
@@ -354,17 +346,6 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
           )}
 
           <div className="absolute top-3 right-3 z-[60] flex flex-col items-end gap-1.5 ">
-             {item.preAnalysis && (
-                <div 
-                  title={`AI Scene: ${item.preAnalysis.roomType} (${item.preAnalysis.occupancy})`}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-black/85 text-white backdrop-blur-md rounded-lg border border-orange-500/40 shadow-lg pointer-events-auto"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[7.5px] font-black uppercase tracking-widest text-orange-400">
-                    {item.preAnalysis.roomType}
-                  </span>
-                </div>
-             )}
              {is360Image && (
                 <button
                   type="button"
@@ -407,17 +388,6 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
               })}
             </div>
 
-          {item.isAnalyzing && (
-              <div className="absolute inset-0 z-40 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center pointer-events-none">
-                  <div className="relative w-10 h-10 flex items-center justify-center mb-2">
-                      <div className="absolute inset-0 rounded-full border-2 border-orange-500/30 animate-ping" />
-                      <div className="w-8 h-8 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest animate-pulse">Gemini Vision Scanning...</span>
-                  <span className="text-[8px] text-slate-400 mt-1">Analyzing room structure, clutter & lighting</span>
-              </div>
-          )}
-
           {item.status === 'processing' && (
               <div className="absolute inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center pointer-events-none">
                   <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
@@ -445,206 +415,7 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
               </div>
           </div>
 
-          {/* AI-Powered Pre-Analysis Card (with complete toggle on/off visibility) */}
-          {item.preAnalysis && (
-            <div className="bg-slate-900/95 border border-orange-500/30 rounded-xl p-2.5 space-y-2 text-xs shadow-inner">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
-                  </svg>
-                  <span className="text-[9px] font-black uppercase tracking-wider text-orange-400">
-                    Gemini Vision Analysis
-                  </span>
-                  {!isAnalysisVisible && (
-                    <span className="px-1.5 py-0.2 rounded bg-orange-500/10 text-[7.5px] font-bold text-orange-400 border border-orange-500/20">
-                      Hidden
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {isAnalysisVisible && (
-                    <button 
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setShowAnalysisDetails(!showAnalysisDetails); }}
-                      className="text-[8px] font-bold text-slate-400 hover:text-white uppercase tracking-wider px-1.5 py-0.5 rounded hover:bg-white/5 transition-colors"
-                      title={showAnalysisDetails ? 'Hide Detailed Features' : 'Show Detailed Features'}
-                    >
-                      {showAnalysisDetails ? 'Less ▲' : 'More ▼'}
-                    </button>
-                  )}
-                  <button 
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setIsAnalysisVisible(!isAnalysisVisible); }}
-                    className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1 ${
-                      isAnalysisVisible 
-                        ? 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-white/10' 
-                        : 'bg-orange-500 text-white hover:bg-orange-400 shadow-sm'
-                    }`}
-                    title={isAnalysisVisible ? 'Collapse analysis to reduce clutter' : 'Expand full analysis view'}
-                  >
-                    <span>{isAnalysisVisible ? 'Hide ✕' : 'Show Analysis 👁'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {isAnalysisVisible && (
-                <>
-                  {/* Attributes badges */}
-                  <div className="flex flex-wrap gap-1">
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-[8px] font-bold text-slate-300 border border-white/5">
-                      🏷️ {item.preAnalysis.roomType}
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-[8px] font-bold text-slate-300 border border-white/5">
-                      💡 {item.preAnalysis.lightingCondition}
-                    </span>
-                    {item.preAnalysis.flooringType && (
-                      <span className="px-2 py-0.5 rounded bg-slate-800 text-[8px] font-bold text-slate-300 border border-white/5">
-                        🪵 {item.preAnalysis.flooringType}
-                      </span>
-                    )}
-                    {typeof item.preAnalysis.skyPercentage === 'number' && (
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold border ${
-                        item.preAnalysis.skyPercentage >= 10 
-                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' 
-                          : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                      }`} title={item.preAnalysis.skyPercentage >= 10 ? 'Sky coverage >= 10%: Outdoor Sunny Skies active' : 'Sky coverage < 10%: Low or interior sky coverage'}>
-                        ☀️ {item.preAnalysis.skyPercentage.toFixed(0)}% Sky {item.preAnalysis.skyPercentage >= 10 ? '(Outdoor Sunny Skies)' : '(Interior/Low Sky)'}
-                      </span>
-                    )}
-                    {item.preAnalysis.clutterLevel !== 'none' && (
-                      <span className="px-2 py-0.5 rounded bg-amber-500/10 text-[8px] font-bold text-amber-400 border border-amber-500/20">
-                        ⚠️ {item.preAnalysis.clutterLevel.toUpperCase()} Clutter
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Summary text */}
-                  <p className="text-[8.5px] text-slate-300 leading-snug">
-                    {item.preAnalysis.summary}
-                  </p>
-
-                  {/* Expandable details */}
-                  {showAnalysisDetails && (
-                    <div className="space-y-1.5 pt-1.5 border-t border-white/5 text-[8px]">
-                      {item.preAnalysis.clutterItems && item.preAnalysis.clutterItems.length > 0 && (
-                        <div>
-                          <span className="text-slate-500 font-bold uppercase">Detected Clutter: </span>
-                          <span className="text-amber-300">{item.preAnalysis.clutterItems.join(', ')}</span>
-                        </div>
-                      )}
-                      {item.preAnalysis.detectedFeatures && item.preAnalysis.detectedFeatures.length > 0 && (
-                        <div>
-                          <span className="text-slate-500 font-bold uppercase">Architectural Features: </span>
-                          <span className="text-slate-300">{item.preAnalysis.detectedFeatures.join(', ')}</span>
-                        </div>
-                      )}
-                      {item.preAnalysis.suggestedStagingStyle && (
-                        <div>
-                          <span className="text-slate-500 font-bold uppercase">Suggested Staging: </span>
-                          <span className="text-orange-300">{item.preAnalysis.suggestedStagingStyle} style for {item.preAnalysis.suggestedStagingRoom || 'room'}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Recommendations & One-click Apply */}
-                  <div className="pt-1.5 border-t border-white/5 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
-                        Recommended Edits:
-                      </span>
-                      {onApplyPreAnalysisRecommendations && item.preAnalysis.recommendedTools?.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onApplyPreAnalysisRecommendations(item.id); }}
-                          className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-orange-500 text-white hover:bg-orange-400 transition-colors flex items-center gap-1 shadow-sm cursor-pointer"
-                        >
-                          <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                          Apply All
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {item.preAnalysis.recommendedTools
-                        ?.filter(toolId => {
-                          if (!isAdmin && (toolId.includes('video') || toolId.startsWith('p360_'))) return false;
-                          return true;
-                        })
-                        .map(toolId => {
-                        const preset = [...WEATHER_PRESETS, ...PANORAMA_PRESETS, ...VISUAL_STAGER_PRESETS].find(p => p.id === toolId);
-                        const isAssigned = item.assignedTools.includes(toolId);
-                        return (
-                          <button
-                            key={toolId}
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); onTogglePreAnalysisTool ? onTogglePreAnalysisTool(item.id, toolId) : onToolDrop && onToolDrop(item.id, toolId); }}
-                            className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all flex items-center gap-1 border cursor-pointer ${
-                              isAssigned 
-                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm' 
-                                : 'bg-slate-800 text-slate-400 border-white/10 hover:border-orange-500/50 hover:text-orange-300'
-                            }`}
-                          >
-                            <span>{isAssigned ? '✓' : '+'}</span>
-                            <span>{preset?.label || toolId}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
-              {/* Option 2: Pre-Analyze action button */}
-              <button
-                type="button"
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  if (item.preAnalysis) {
-                    setIsAnalysisVisible(prev => !prev);
-                  } else {
-                    onPreAnalyze && onPreAnalyze(item.id, e); 
-                  }
-                }}
-                disabled={item.isAnalyzing || item.status === 'processing'}
-                title={item.preAnalysis ? (isAnalysisVisible ? "Hide Gemini Vision Analysis Panel" : "Show Gemini Vision Analysis Panel") : "AI-Powered Pre-Analysis (Gemini Vision)"}
-                className={`px-2.5 py-2 border rounded-lg transition-all shrink-0 flex items-center gap-1.5 shadow-sm cursor-pointer ${
-                  item.preAnalysis 
-                    ? (isAnalysisVisible 
-                        ? 'bg-orange-500/20 border-orange-500/50 text-orange-400 hover:bg-orange-500 hover:text-white' 
-                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-orange-500/50 hover:text-orange-400') 
-                    : 'bg-slate-800 border-slate-700 text-orange-400 hover:bg-orange-500/20'
-                }`}
-              >
-                {item.isAnalyzing ? (
-                  <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-                  </svg>
-                )}
-                <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">
-                  {item.isAnalyzing ? 'Scanning...' : item.preAnalysis ? (isAnalysisVisible ? 'Analysis On' : 'Analysis Off') : 'Pre-Analyze'}
-                </span>
-              </button>
-
-              {/* Quick Re-scan button if already analyzed */}
-              {item.preAnalysis && !item.isAnalyzing && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onPreAnalyze && onPreAnalyze(item.id, e); }}
-                  title="Re-scan image with Gemini Vision"
-                  className="p-2 border rounded-lg bg-slate-800 border-slate-700 text-slate-400 hover:text-orange-400 hover:border-orange-500/40 transition-all shrink-0 cursor-pointer"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                  </svg>
-                </button>
-              )}
-
               {isAdmin && currentAsset?.type === 'video' && onExtractFrame && (
                 <button 
                   type="button"

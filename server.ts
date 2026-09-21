@@ -42,15 +42,16 @@ if (process.env.FAL_KEY) {
 }
 
 function getAi(): GoogleGenAI {
-    const envGemini = process.env.GEMINI_API_KEY || '';
-    const envApi = process.env.API_KEY || '';
-    const key = process.env.USER_GEMINI_API_KEY || 
-                (envGemini && !envGemini.startsWith('AQ.') ? envGemini : '') ||
-                (envApi && !envApi.startsWith('AQ.') ? envApi : '') ||
-                'AIzaSyAe4-zK9ebQCuJ6-2o_99NgD1Ri69al7dQ' ||
-                envGemini;
+    // Prioritize process.env.GEMINI_API_KEY provided by Google AI Studio
+    let key = process.env.GEMINI_API_KEY || process.env.USER_GEMINI_API_KEY || process.env.API_KEY || '';
+    // Guard against revoked/leaked key if it lingers in legacy environment variables
+    if (key.includes('AIzaSyAe4-zK9ebQCuJ6-2o_99NgD1Ri69al7dQ')) {
+        key = (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes('AIzaSyAe4-zK9ebQCuJ6-2o_99NgD1Ri69al7dQ')) 
+            ? process.env.GEMINI_API_KEY 
+            : '';
+    }
     if (!key) {
-        console.warn("WARNING: No Gemini API key found in process.env.GEMINI_API_KEY or API_KEY.");
+        console.warn("WARNING: No Gemini API key found in process.env.GEMINI_API_KEY.");
     }
     return new GoogleGenAI({ 
         apiKey: key,
@@ -158,6 +159,12 @@ function parseGeminiError(e: any): { status: number, message: string } {
     if (message.includes("quota") || message.includes("RESOURCE_EXHAUSTED") || message.includes("429") || message.includes("FreeTier")) {
         status = 429;
         message = "Gemini API Quota Exceeded / Billing Plan Required. This image generation/editing task requires a Pay-as-you-go / Paid API key tier. Please click the Settings gear icon in the top right, go to Secrets, and select a paid key with billing enabled.";
+    } else if (message.includes("leaked") || message.includes("API key was reported as leaked")) {
+        status = 403;
+        message = "Your Gemini API key was reported as leaked and revoked by Google. Please generate a fresh API key in Google AI Studio, then update it under Settings > Secrets.";
+    } else if (message.includes("API_KEY_INVALID") || message.includes("API key not valid")) {
+        status = 401;
+        message = "Invalid Gemini API key. Please check your API key in Settings > Secrets or in your .env configuration.";
     }
 
     return { status, message };
@@ -372,9 +379,10 @@ app.post("/api/pre-analysis", async (req, res) => {
 - clutterLevel: "none" | "light" | "moderate" | "heavy"
 - clutterItems: specific clutter objects detected to remove (e.g. ["cords under TV", "countertop mess", "personal frames"]). Empty array if none.
 - detectedFeatures: key architectural elements (e.g. ["Fireplace", "Sliding patio doors", "Crown molding", "Recessed lighting"])
-- recommendedTools: array of studio tool IDs strictly from: ["auto_declutter", "declutter_direct", "sunny_skies", "window_splash", "furniture", "style_swapper", "wall_unifier", "cable_remover", "lush_lawn", "white_balance", "sunset"]
+- recommendedTools: array of studio tool IDs strictly from: ["declutter_direct", "sunny_skies", "window_splash", "furniture", "style_swapper", "wall_unifier", "cable_remover", "lush_lawn", "white_balance", "sunset"]
 - suggestedStagingStyle: one of: "Modern", "Contemporary", "Industrial", "Luxury", "Scandinavian", "Minimalist", "Mid-Century Modern", "Traditional"
 - suggestedStagingRoom: one of: "living room", "living room and dining room", "Bedroom", "Kitchen", "Dining room", "Den", "Office", "Rec room", "Patio Furniture", "Media Room"
+- suggestedBedWall: if the room is a Bedroom or sleeping area, recommend the best wall for the headboard to avoid blocking windows: "back" | "left" | "right" | "opposite_windows"
 - skyPercentage: numerical percentage (0 to 100) of the photo frame occupied by visible outdoor open sky. CRITICAL: For interior rooms, smooth drywall ceilings, white ceilings, recessed lights, and interior walls are NEVER sky; they are interior architectural surfaces. In interior photos, sky can ONLY exist through outdoor window glass panes. If an interior room has no windows or no sky visible through windows, skyPercentage MUST be 0.
 - hasWindows: boolean true if room has windows, glass doors, or openings with outside views.
 - summary: crisp 1-2 sentence assessment and editing plan` 
@@ -397,6 +405,7 @@ app.post("/api/pre-analysis", async (req, res) => {
                         recommendedTools: { type: Type.ARRAY, items: { type: Type.STRING } },
                         suggestedStagingStyle: { type: Type.STRING },
                         suggestedStagingRoom: { type: Type.STRING },
+                        suggestedBedWall: { type: Type.STRING },
                         skyPercentage: { type: Type.NUMBER },
                         hasWindows: { type: Type.BOOLEAN },
                         summary: { type: Type.STRING }
@@ -623,21 +632,37 @@ app.post("/api/edit-image", async (req, res) => {
             upperPrompt.includes('STAGING')
         ) && !isWallUnifier && !isDepersonalize;
 
+        const isEmptyRoom = (upperPrompt.includes('EMPTY ROOM') || 
+                            upperPrompt.includes('EMPTY_ROOM') || 
+                            upperPrompt.includes('ARCHITECTURAL EMPTY ROOM PROTOCOL')) && !isDepersonalize;
+
         const isDeclutterDirective = (
             upperPrompt.includes('DECLUTTER') ||
             upperPrompt.includes('OBJECT_REMOVAL') ||
             upperPrompt.includes('MAGIC ERASER')
-        ) && !isDepersonalize;
+        ) && !isDepersonalize && !isEmptyRoom;
+
+        if (isEmptyRoom) {
+            parts.push({
+                text: `[CRITICAL_STRICT_ARCHITECTURAL_EMPTY_ROOM_DIRECTIVE]:
+- COMPLETE FURNITURE & RUG REMOVAL: Surgically remove and depopulate all movable furniture (sofas, sectionals, armchairs, coffee tables, dining tables, chairs, beds, mattresses, nightstands, dressers, desks, bookshelves, lamps), all area rugs, runners, floor mats, wall artwork, and loose decor from the scene to reveal an entirely vacant, move-in-ready empty space.
+- STRICT FLOOR MATERIAL & FINISH LOCK: ABSOLUTELY DO NOT change, replace, bleach, restain, re-tile, or mutate ANY existing flooring material. Hardwood species, wood grain, plank width, plank direction, wood stain color, tile pattern, and carpet texture MUST remain 100% identical and unchanged to the source photo. Any uncovered floor area where furniture or rugs were removed MUST seamlessly match the surrounding original floor material with photorealistic texture and color continuity. NEVER change carpet to wood, wood to carpet, or alter flooring type.
+- STRICT WALL COLOR & TRIM LOCK: ABSOLUTELY DO NOT change, repaint, tint, lighten, darken, or alter any wall colors, accent walls, wallpaper, moldings, baseboards, door trims, or ceilings. Keep existing wall paint colors and textures 100% identical and untouched.
+- STRICT WINDOW, SKY & OUTDOOR VIEW IMMUTABILITY LOCK: ABSOLUTELY DO NOT alter, repaint, redraw, or replace any windows, window frames, glass panes, or outdoor scenery visible through the window glass. The outdoor sky, trees, vegetation, patio, and daylight visible through windows MUST remain 100% IDENTICAL, UNTOUCHED, AND FROZEN. Do NOT replace the sky, do NOT add clouds, and do NOT alter exterior views.
+- ZERO STRUCTURAL MODIFICATIONS: Zero architectural changes. Keep all room boundaries, structural walls, partition walls, door openings, ceilings, and built-in fixtures in their exact original geometry and positions.`
+            });
+        }
 
         if (isDeclutterDirective) {
             parts.push({
                 text: `[CRITICAL_DEEP_TOTAL_DECLUTTER_DIRECTIVE]:
 - COMPLETE CLUTTER ELIMINATION: Completely eliminate and inpaint all loose clutter, mess, trash, loose papers, mail, cables, cords, chargers, dishes, cookware, cups, bottles, boxes, bags, shoes, clothing piles, laundry hampers, pet toys, toiletries, and countertop knickknacks.
 - CLEAN ARCHITECTURAL SURFACES: Restore all tables, desks, kitchen counters, bathroom vanities, shelves, and floors to clean, pristine, model-home condition.
-- STRICT FLOOR MATERIAL & FINISH LOCK: ABSOLUTELY DO NOT change, replace, bleach, restain, re-tile, or mutate ANY existing flooring material. Hardwood grain, plank width, wood stain, tile pattern, carpet texture, and grout MUST remain 100% identical and unchanged to the source photo. Any uncovered floor area where clutter was removed MUST seamlessly match the surrounding floor material with photorealistic precision.
-- STRICT WALL COLOR & TRIM LOCK: ABSOLUTELY DO NOT alter, repaint, tint, or change any existing wall paint colors, accent walls, wallpaper, moldings, or baseboards.
+- STRICT (ZERO TOLERANCE) FLOOR LOCK: ABSOLUTELY DO NOT change, replace, bleach, restain, re-tile, re-carpet, or mutate ANY existing flooring material or pattern. Hardwood grain, plank direction, plank width, wood stain color, tile pattern, carpet texture, and grout MUST remain 100% identical and unchanged to the source photo. Any uncovered floor area where clutter was lifted MUST seamlessly match the existing floor material with photorealistic precision. NEVER change hardwood to carpet, carpet to hardwood, or alter flooring type or color tone.
+- STRICT (ZERO TOLERANCE) WALL COLOR & TRIM LOCK: ABSOLUTELY DO NOT alter, repaint, tint, lighten, darken, or change any existing wall paint colors, accent walls, wallpaper, moldings, baseboards, door trims, or ceiling finishes. All walls, trims, and paint finishes must remain 100% strictly identical in color, sheen, and texture to the original source photo.
+- STRICT (ZERO TOLERANCE) ROOM STRUCTURE PRESERVATION: ABSOLUTELY DO NOT change, move, add, or remove ANY structural walls, partition walls, half walls, columns, pillars, archways, doorways, door frames, windows, window panes, ceilings, or room boundaries. Keep the exact physical room geometry, architectural boundaries, and spatial perspective 100% identical and intact.
 - ZERO WEATHER / OUTDOOR MUTATION: Strictly DO NOT add snow, frost, ice, or white ground cover to any exterior grounds, lawns, driveways, or patios. Outdoor landscaping, grass, and pavement must preserve their original non-winter state.
-- STRUCTURAL & FURNITURE PRESERVATION: Keep existing primary structural furniture (sofas, beds, dining tables, kitchen cabinets), original wall paint, flooring textures, windows, and architecture completely intact.`
+- PRIMARY FURNITURE PRESERVATION: Keep existing primary structural furniture (sofas, beds, dining tables, kitchen cabinets), original wall paint, flooring textures, windows, and architecture completely intact.`
             });
         }
         if (isWallUnifier) {
@@ -708,7 +733,7 @@ app.post("/api/edit-image", async (req, res) => {
 - STRICT PROHIBITION OF NIGHTTIME OR DARK TWILIGHT: ABSOLUTELY DO NOT render a dark, black, deep blue-hour, or nighttime sky. The property and surroundings must NOT be plunged into darkness, heavy underexposed shadows, or night atmosphere.
 - DRAMATIC SUNSET SKY: Replace the sky above the horizon with luminous golden-hour sunset clouds featuring rich golden, peach, amber, and warm light.
 - ARCHITECTURAL FACADE & LANDSCAPING ILLUMINATION: The house facade, roof, lawn, trees, driveway, and structural details must remain fully visible and naturally illuminated by warm sunset ambient light.
-- WARM INTERIOR & EXTERIOR ACCENT GLOW: Gently illuminate windows and exterior porch/coach lamps with a warm 2700K golden interior glow.
+- CRITICAL INTERIOR WINDOW ILLUMINATION (LIGHTS ON INSIDE): Make sure most to all windows across the entire house facade (upper levels, ground floor, side windows, dormers, and transom windows) have interior lights turned ON inside. Each window glass MUST have a prominent, warm, luminous 2700K-3000K golden amber ambient glow shining through from the inside. Also softly illuminate exterior coach lanterns, porch sconces, and landscape lighting.
 - STRICT ARCHITECTURAL IMMUTABILITY: Keep all walls, geometry, doors, windows, rooflines, and structures 100% identical to the source image.`
             });
         }
@@ -759,14 +784,35 @@ app.post("/api/edit-image", async (req, res) => {
 
                     let inpaintPrompt = prompt;
                     const upperPrompt = prompt.toUpperCase();
+                    const isEmptyRoom = (upperPrompt.includes('EMPTY ROOM') || 
+                                        upperPrompt.includes('EMPTY_ROOM') || 
+                                        upperPrompt.includes('ARCHITECTURAL EMPTY ROOM PROTOCOL')) && !isDepersonalize;
                     const is360Pano = upperPrompt.includes('360') || upperPrompt.includes('EQUIRECTANGULAR') || upperPrompt.includes('PANORAMA') || upperPrompt.includes('P360');
-                    const isDeclutter = upperPrompt.includes('DECLUTTER') || upperPrompt.includes('OBJECT_REMOVAL') || upperPrompt.includes('MAGIC ERASER') || upperPrompt.includes('REMOVE CABLES') || upperPrompt.includes('EMPTY ROOM') || upperPrompt.includes('EMPTY_ROOM') || upperPrompt.includes('CLEAN ARCHITECTURAL FLOOR');
+                    const isDeclutter = (upperPrompt.includes('DECLUTTER') || upperPrompt.includes('OBJECT_REMOVAL') || upperPrompt.includes('MAGIC ERASER') || upperPrompt.includes('REMOVE CABLES') || upperPrompt.includes('CLEAN ARCHITECTURAL FLOOR')) && !isEmptyRoom;
 
-                    if (isDeclutter) {
+                    if (isEmptyRoom) {
+                        inpaintPrompt = "ARCHITECTURAL EMPTY ROOM PROTOCOL: Surgically remove and inpaint all furniture, sofas, chairs, tables, beds, nightstands, dressers, area rugs, wall art, and decor. Inpaint seamless, clean architectural floor and walls matching the surrounding room materials with photorealistic precision. STRICT FLOOR LOCK: Absolutely DO NOT change floor material, wood stain, tile pattern, carpet texture, or species. Uncovered floor must match surrounding floor 100% identically. STRICT WALL LOCK: Keep original wall paint colors and textures untouched. STRICT WINDOW & SKY LOCK: Keep windows, window glass, and outdoor sky 100% untouched and frozen.";
+                        console.log("[AI Engine] Routing Empty Room Inpaint to FLUX.1 Fill...");
+                        usedFalModel = 'fal-ai/flux-pro/v1/fill';
+                        try {
+                            falResult = await runFalWithRetry("fal-ai/flux-pro/v1/fill", {
+                                prompt: inpaintPrompt,
+                                image_url: sourceUrl,
+                                mask_url: maskUrl
+                            });
+                        } catch (fillErr) {
+                            usedFalModel = 'fal-ai/flux-fill/dev';
+                            falResult = await runFalWithRetry("fal-ai/flux-fill/dev", {
+                                prompt: inpaintPrompt,
+                                image_url: sourceUrl,
+                                mask_url: maskUrl
+                            });
+                        }
+                    } else if (isDeclutter) {
                         if (is360Pano) {
                             console.log("[AI Engine] Routing 360 Panorama Declutter Inpaint to FLUX.1 Pro Fill (fal-ai/sam2 + fal-ai/flux-pro/v1/fill)");
                             usedFalModel = 'fal-ai/sam2 + fal-ai/flux-pro/v1/fill';
-                            const declutterFillPrompt = "ARCHITECTURAL DECLUTTER: Completely remove all furniture, clutter, tables, chairs, beds, rugs, and decor. Inpaint seamless, clean architectural floor and walls matching the surrounding room materials with photorealistic precision. STRICT LOCK: Absolutely DO NOT change floor material, wood stain, tile pattern, or wall paint color. Zero snow, zero winter ground covering.";
+                            const declutterFillPrompt = "ARCHITECTURAL DECLUTTER: Completely remove all furniture, clutter, tables, chairs, beds, rugs, and decor. Inpaint seamless, clean architectural floor and walls matching the surrounding room materials with photorealistic precision. STRICT ZERO TOLERANCE LOCK: Absolutely DO NOT change floor material, wood stain, tile pattern, or wall paint color. Absolutely DO NOT change or alter any walls, doors, windows, ceilings, or room structure. Zero snow, zero winter ground covering.";
                             try {
                                 falResult = await runFalWithRetry("fal-ai/flux-pro/v1/fill", {
                                     prompt: declutterFillPrompt,
@@ -786,13 +832,13 @@ app.post("/api/edit-image", async (req, res) => {
                                     usedFalModel = 'fal-ai/flux-pro/kontext';
                                     falResult = await runFalWithRetry("fal-ai/flux-pro/kontext", {
                                         image_url: sourceUrl,
-                                        prompt: "ARCHITECTURAL DECLUTTER: Completely empty vacant room. Remove all furniture, chairs, tables, beds, rugs, clutter, and personal belongings. Reveal original clean architectural flooring and structural walls. Keep existing windows, doors, ceiling, and room layout. STRICT FLOOR & WALL LOCK: Keep exact original hardwood/tile floor material, color, and wall paint unchanged. Zero snow or frost.",
+                                        prompt: "ARCHITECTURAL DECLUTTER: Completely empty vacant room. Remove all furniture, chairs, tables, beds, rugs, clutter, and personal belongings. Reveal original clean architectural flooring and structural walls. Keep existing windows, doors, ceiling, and room layout. STRICT (ZERO TOLERANCE) FLOOR & WALL LOCK: Keep exact original hardwood/tile floor material, color, and wall paint unchanged. STRICT STRUCTURAL PRESERVATION: Do not alter any walls, room boundaries, or structure. Zero snow or frost.",
                                         guidance_scale: 4.5
                                     });
                                 }
                             }
                         } else {
-                            inpaintPrompt = "DEEP TOTAL DECLUTTER PROTOCOL: Completely remove all loose clutter, mess, trash, cables, wires, cords, dishes, food, boxes, bags, shoes, clothes, laundry baskets, pet accessories, bottles, containers, papers, mail, and countertop/tabletop mess. Seamlessly reveal and inpaint clean, spotless, pristine architectural surfaces, countertops, and flooring matching the surrounding materials with photorealistic precision. STRICT FLOOR & WALL LOCK: Absolutely DO NOT change or replace floor materials, wood grain, tile pattern, or wall paint. Zero snow, zero winter ground cover.";
+                            inpaintPrompt = "DEEP TOTAL DECLUTTER PROTOCOL: Completely remove all loose clutter, mess, trash, cables, wires, cords, dishes, food, boxes, bags, shoes, clothes, laundry baskets, pet accessories, bottles, containers, papers, mail, and countertop/tabletop mess. Seamlessly reveal and inpaint clean, spotless, pristine architectural surfaces, countertops, and flooring matching the surrounding materials with photorealistic precision. STRICT (ZERO TOLERANCE) FLOOR, WALL & STRUCTURE LOCK: Absolutely DO NOT change or replace floor materials, wood grain, tile pattern, or wall paint. Absolutely DO NOT alter, shift, or modify any room structure, walls, doorways, windows, or ceilings. Zero snow, zero winter ground cover.";
                             console.log("[AI Engine] Routing Declutter Inpaint to FLUX.1 [dev] Fill (fal-ai/flux-fill/dev / fal-ai/flux-lora-fill)");
                             usedFalModel = 'fal-ai/flux-fill/dev';
                             try {
@@ -835,7 +881,10 @@ app.post("/api/edit-image", async (req, res) => {
 
                     let effectivePrompt = prompt;
                     const upperPrompt = prompt.toUpperCase();
-                    const isDeclutter = (upperPrompt.includes('DECLUTTER') || upperPrompt.includes('OBJECT_REMOVAL') || upperPrompt.includes('MAGIC ERASER') || upperPrompt.includes('REMOVE CABLES') || upperPrompt.includes('EMPTY ROOM') || upperPrompt.includes('EMPTY_ROOM') || upperPrompt.includes('CLEAN ARCHITECTURAL FLOOR')) && !isDepersonalize;
+                    const isEmptyRoom = (upperPrompt.includes('EMPTY ROOM') || 
+                                        upperPrompt.includes('EMPTY_ROOM') || 
+                                        upperPrompt.includes('ARCHITECTURAL EMPTY ROOM PROTOCOL')) && !isDepersonalize;
+                    const isDeclutter = (upperPrompt.includes('DECLUTTER') || upperPrompt.includes('OBJECT_REMOVAL') || upperPrompt.includes('MAGIC ERASER') || upperPrompt.includes('REMOVE CABLES') || upperPrompt.includes('CLEAN ARCHITECTURAL FLOOR')) && !isDepersonalize && !isEmptyRoom;
                     const isStaging = (
                         upperPrompt.includes('VIRTUAL STAGING') || 
                         upperPrompt.includes('FURNITURE') || 
@@ -853,6 +902,10 @@ app.post("/api/edit-image", async (req, res) => {
                         if (!effectivePrompt.includes('STRICT_FLOOR_MATERIAL_AND_FINISH_LOCK') && !effectivePrompt.includes('STRICT FLOOR LOCK')) {
                             effectivePrompt = `[STRICT_FLOOR_LOCK: ABSOLUTELY DO NOT CHANGE, REPLACE, RESTAIN, BLEACH, OR ALTER ANY EXISTING FLOORING MATERIAL. Hardwood grain, wood stain color, plank width, plank direction, tile pattern, carpet texture, and grout must remain 100% identical and unchanged to the original photo. Any uncovered floor space where old furniture or rugs were moved must match the exact surrounding flooring material identically.] ${effectivePrompt}`;
                         }
+                        const isBedroomStaging = upperPrompt.includes('BEDROOM') || upperPrompt.includes('BED ') || upperPrompt.includes('BEDS');
+                        if (isBedroomStaging && !effectivePrompt.includes('BED_PLACEMENT_AND_WINDOW_PROTECTION_PROTOCOL')) {
+                            effectivePrompt += ' [BED_PLACEMENT_AND_WINDOW_PROTECTION_PROTOCOL]: (1) SOLID WALL ANCHOR: The bed and headboard MUST be anchored against the primary solid, uninterrupted wall that has NO windows or glass openings. (2) STRICT WINDOW & NATURAL LIGHT PRESERVATION: Absolutely NEVER place the bed, headboard, or nightstands in front of, overlapping, or partially obstructing ANY window, sliding glass door, or architectural opening. All windows, window frames, glass panes, outdoor views, and natural incoming light must remain 100% clear and completely unobstructed. (3) SYMMETRY & CLEARANCES: Center the bed symmetrically along the chosen solid wall with flanking nightstands and bedside lamps, maintaining clear walking pathways to all doorways and closets.';
+                        }
                     }
 
                     if (isSunset) {
@@ -860,7 +913,7 @@ app.post("/api/edit-image", async (req, res) => {
 - VIBRANT GOLDEN-HOUR EXPOSURE: Transform the scene into a bright, vibrant golden-hour sunset architectural photo with high ambient light.
 - STRICT PROHIBITION OF NIGHTTIME OR DARK TWILIGHT: ABSOLUTELY DO NOT render a dark, black, deep-blue, or underexposed night scene. Maintain clear daytime-to-sunset clarity across the house facade, walls, roof, lawn, and driveway.
 - DRAMATIC SUNSET SKY: Replace sky above the horizon with luminous golden-hour sunset clouds featuring rich golden, peach, amber, and soft pink tones.
-- WARM LIGHT ACCENTS: Gently illuminate windows and exterior lamps with a soft, inviting 2700K golden interior glow.
+- CRITICAL INTERIOR WINDOW ILLUMINATION: Make sure most to all windows across the entire house facade have warm interior lights turned ON inside with a welcoming, cozy 2700K-3000K golden amber ambient glow shining through each window glass. Also illuminate exterior coach/porch sconces.
 - ARCHITECTURAL PRESERVATION: Keep the property architecture, walls, geometry, materials, and landscaping 100% identical.
 ${effectivePrompt}`;
                     }
@@ -906,8 +959,8 @@ ${effectivePrompt}`;
                                 console.log("[AI Engine] SAM2 mask extraction skipped, continuing with in-context model:", samErr);
                             }
 
-                            const declutterFillPrompt = "ARCHITECTURAL DECLUTTER: Completely remove all furniture, clutter, tables, chairs, beds, rugs, and decor. Inpaint seamless, clean architectural floor and walls matching the surrounding room materials with photorealistic precision. STRICT FLOOR & WALL LOCK: Do not change floor material, wood stain, or wall paint. Zero snow.";
-                            const declutterFullPrompt = "ARCHITECTURAL 360 DECLUTTER: Completely vacant, empty room. All furniture, sofas, chairs, tables, desks, beds, rugs, carpets, boxes, electronics, and clutter are completely removed. Pristine, clean, continuous architectural hardwood floor and plain walls. Original architectural windows, ceilings, and room perspective strictly preserved. STRICT FLOOR & WALL LOCK: Absolutely DO NOT change the existing flooring material, wood stain, or wall paint color. Zero snow, zero winter ground cover.";
+                            const declutterFillPrompt = "ARCHITECTURAL DECLUTTER: Completely remove all furniture, clutter, tables, chairs, beds, rugs, and decor. Inpaint seamless, clean architectural floor and walls matching the surrounding room materials with photorealistic precision. STRICT (ZERO TOLERANCE) FLOOR, WALL & STRUCTURE LOCK: Absolutely DO NOT change floor material, wood stain, tile pattern, or wall paint color. Absolutely DO NOT alter room structure, walls, doorways, windows, or ceilings. Zero snow.";
+                            const declutterFullPrompt = "ARCHITECTURAL 360 DECLUTTER: Completely vacant, empty room. All furniture, sofas, chairs, tables, desks, beds, rugs, carpets, boxes, electronics, and clutter are completely removed. Pristine, clean, continuous architectural hardwood floor and plain walls. Original architectural windows, ceilings, and room perspective strictly preserved. STRICT (ZERO TOLERANCE) FLOOR, WALL & STRUCTURE LOCK: Absolutely DO NOT change the existing flooring material, wood stain, tile pattern, or wall paint color. Absolutely DO NOT change walls or room structure. Zero snow, zero winter ground cover.";
 
                             if (autoClutterMaskUrl) {
                                 console.log("[AI Engine] Routing 360 Panorama Declutter to FLUX.1 Pro Fill: fal-ai/flux-pro/v1/fill");
@@ -961,7 +1014,7 @@ ${effectivePrompt}`;
                                 console.log("[AI Engine] Automatic clutter mask extraction skipped, continuing with in-context model");
                             }
 
-                            const deepInpaintPrompt = "DEEP TOTAL DECLUTTER PROTOCOL: Completely remove all loose clutter, mess, trash, cables, wires, cords, dishes, food, boxes, bags, shoes, clothes, laundry baskets, pet accessories, bottles, containers, papers, mail, and countertop/tabletop mess. Seamlessly reveal and inpaint clean, spotless, pristine architectural surfaces, countertops, and flooring matching the surrounding materials with photorealistic precision. STRICT FLOOR & WALL LOCK: Absolutely DO NOT change floor material, wood grain, tile pattern, or wall paint. Zero snow, zero winter ground cover.";
+                            const deepInpaintPrompt = "DEEP TOTAL DECLUTTER PROTOCOL: Completely remove all loose clutter, mess, trash, cables, wires, cords, dishes, food, boxes, bags, shoes, clothes, laundry baskets, pet accessories, bottles, containers, papers, mail, and countertop/tabletop mess. Seamlessly reveal and inpaint clean, spotless, pristine architectural surfaces, countertops, and flooring matching the surrounding materials with photorealistic precision. STRICT (ZERO TOLERANCE) FLOOR, WALL & STRUCTURE LOCK: Absolutely DO NOT change or replace floor materials, wood grain, tile pattern, or wall paint. Absolutely DO NOT alter, move, or modify any room structure, walls, doorways, windows, or ceilings. Zero snow, zero winter ground cover.";
 
                             if (autoClutterMaskUrl) {
                                 console.log("[AI Engine] Auto-clutter mask found, routing to FLUX.1 [dev] Fill");
@@ -985,12 +1038,27 @@ ${effectivePrompt}`;
                                 usedFalModel = 'fal-ai/flux-pro/kontext';
                                 const kontextInput: any = {
                                     image_url: sourceUrl,
-                                    prompt: "DEEP TOTAL DECLUTTER PROTOCOL: Completely remove all clutter, trash, cables, wires, cords, dishes, cups, bottles, papers, boxes, bags, shoes, clothes, toiletries, and mess from all tables, countertops, desks, shelves, and floors. Reveal pristine, clean, spotless surfaces and immaculate flooring. Keep all permanent architecture, walls, ceilings, windows, and primary major furniture (sofas, beds, dining tables, cabinets) completely untouched. STRICT FLOOR & WALL LOCK: Absolutely DO NOT change, restain, bleach, or replace the existing flooring material, wood grain, tile, or carpet. Uncovered floor areas must match the surrounding floor 100% identically. Absolutely DO NOT change or repaint wall colors. ZERO WEATHER ALTERATION: Strictly DO NOT add snow, frost, or white ground cover.",
+                                    prompt: "DEEP TOTAL DECLUTTER PROTOCOL: Completely remove all clutter, trash, cables, wires, cords, dishes, cups, bottles, papers, boxes, bags, shoes, clothes, toiletries, and mess from all tables, countertops, desks, shelves, and floors. Reveal pristine, clean, spotless surfaces and immaculate flooring. Keep all permanent architecture, walls, ceilings, windows, and primary major furniture (sofas, beds, dining tables, cabinets) completely untouched. STRICT (ZERO TOLERANCE) FLOOR LOCK: Absolutely DO NOT change, restain, bleach, or replace the existing flooring material, wood grain, tile, or carpet. Uncovered floor areas must match the surrounding floor 100% identically. STRICT (ZERO TOLERANCE) WALL COLOR & TRIM LOCK: Absolutely DO NOT change, repaint, or shift wall colors, accent walls, trims, or baseboards. STRICT (ZERO TOLERANCE) ROOM STRUCTURE LOCK: Absolutely DO NOT alter, add, move, or remove any walls, doorways, windows, or room boundaries. Keep room geometry 100% identical. ZERO WEATHER ALTERATION: Strictly DO NOT add snow, frost, or white ground cover.",
                                     guidance_scale: 4.5
                                 };
                                 falResult = await runFalWithRetry("fal-ai/flux-pro/kontext", kontextInput);
                             }
                         }
+                    } else if (isEmptyRoom) {
+                        console.log("[AI Engine] Routing Empty Room to FAL AI: fal-ai/flux-pro/kontext (guidance: 3.5 with strict floor, wall, window, sky & structure locks)");
+                        usedFalModel = 'fal-ai/flux-pro/kontext';
+                        const emptyRoomPrompt = `ARCHITECTURAL VACANT EMPTY ROOM PROTOCOL:
+- MISSION: Surgically remove and depopulate all movable furniture, sofas, armchairs, coffee tables, dining tables, chairs, desks, beds, nightstands, dressers, area rugs, floor mats, lamps, wall art, and clutter from the room to make it an entirely vacant, empty space.
+- STRICT FLOOR MATERIAL & FINISH LOCK: ABSOLUTELY DO NOT change, replace, restain, bleach, or alter ANY existing flooring material. Hardwood grain, plank width, plank direction, wood stain color, tile pattern, carpet texture, and grout MUST remain 100% identical and unchanged to the original photo. The uncovered floor where furniture or rugs were removed MUST seamlessly match the surrounding original floor with photorealistic precision. NEVER change hardwood to carpet, carpet to hardwood, or alter tile or wood tones.
+- STRICT WALL COLOR & TRIM LOCK: ABSOLUTELY DO NOT change, repaint, tint, or alter any wall colors, accent walls, wallpaper, trim, moldings, baseboards, or ceilings. Keep existing wall paint colors, textures, and finishes 100% identical to the source image.
+- STRICT WINDOW & SKY IMMUTABILITY LOCK: ABSOLUTELY DO NOT alter, repaint, or touch any windows, window frames, glass panes, or the outdoor scenery and sky visible through the windows. The outdoor sky, trees, and landscape seen through windows MUST remain 100% FROZEN, UNTOUCHED, AND IDENTICAL to the source photo. Zero modifications to window glass or outdoor sky.
+- STRICT STRUCTURAL PRESERVATION: Keep all room boundaries, walls, doors, doorways, windows, ceilings, and built-in fixtures 100% structurally identical.`;
+                        const kontextInput: any = {
+                            image_url: sourceUrl,
+                            prompt: emptyRoomPrompt,
+                            guidance_scale: 3.5
+                        };
+                        falResult = await runFalWithRetry("fal-ai/flux-pro/kontext", kontextInput);
                     } else if (isDepersonalize) {
                         console.log("[AI Engine] Routing Depersonalization to FAL AI: fal-ai/flux-pro/kontext (strict zero-furniture and zero-wall-color lock)");
                         usedFalModel = 'fal-ai/flux-pro/kontext';
@@ -1460,7 +1528,11 @@ app.post("/api/video-download", async (req, res) => {
             return res.status(500).json({ error: "No video URI returned from generation operation." });
         }
 
-        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+        const apiKey = (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes('AIzaSyAe4-zK9ebQCuJ6-2o_99NgD1Ri69al7dQ'))
+            ? process.env.GEMINI_API_KEY
+            : (process.env.API_KEY && !process.env.API_KEY.includes('AIzaSyAe4-zK9ebQCuJ6-2o_99NgD1Ri69al7dQ'))
+                ? process.env.API_KEY
+                : '';
         const videoRes = await fetch(uri, {
             headers: apiKey ? { 'x-goog-api-key': apiKey } : {},
         });

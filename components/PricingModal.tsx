@@ -183,7 +183,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
             Choose Your Credit Pack
           </h2>
           <p className="text-xs md:text-sm text-slate-400 mt-2">
-            Never expire. Credits power automated virtual staging, sunny skies, direct declutter, 360 restyling, and cinematic AI video reels.
+            Never expire. Credits power automated virtual staging, sunny skies, de clutter, 360 restyling, and cinematic AI video reels.
           </p>
 
           <div className="mt-3.5 flex items-center justify-center gap-2 flex-wrap">
@@ -296,7 +296,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
                   <ul className="space-y-2 text-xs text-slate-300 border-t border-slate-800/80 pt-4 mb-6">
                     {(pack.features || [
                       'Virtual Staging & Style Swap (30-60 credits)',
-                      'Sunny Skies & Declutter (30 credits)',
+                      'Sunny Skies & De Clutter (30 credits)',
                       '360 Panoramic Virtual Staging (90 credits)',
                       'AI Video Reels & Transformations (90 credits)'
                     ]).map((feat, fIdx) => (
