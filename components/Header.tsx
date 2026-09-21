@@ -43,24 +43,16 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 transition-all duration-300">
       <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-2xl border-b border-white/5 shadow-lg"></div>
       <div className="relative max-w-[1440px] mx-auto px-4 md:px-6 h-20 md:h-24 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 md:gap-4">
-          {/* PMD Logo Recreation */}
-          <div className="relative group cursor-default">
-            <div className="absolute -inset-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-            <div className="relative w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-amber-500 via-orange-600 to-orange-700 shadow-lg shadow-orange-900/40 flex flex-col items-center justify-center border border-white/10 ring-1 ring-black/20 overflow-hidden transition-transform duration-300 group-hover:scale-105">
-               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-               <span className="text-white font-black text-base md:text-lg tracking-tighter leading-none z-10 drop-shadow-sm transform translate-y-[1px]" style={{ fontFamily: 'Arial, sans-serif' }}>PMD</span>
-               <span className="text-white font-bold text-[0.26rem] md:text-[0.3rem] tracking-wide leading-none mt-0.5 opacity-90 z-10">DIGITAL MEDIA</span>
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <h1 className="text-sm font-black tracking-wider uppercase text-white flex items-center gap-1.5">
-              PMD Studio
-              <span className="px-1.5 py-0.2 rounded bg-orange-500/20 text-orange-400 text-[8px] font-bold tracking-widest border border-orange-500/30">
-                PRO
-              </span>
-            </h1>
-            <p className="text-[10px] text-slate-400">Automated Real Estate Visuals & Virtual Staging</p>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center py-1 group">
+            <img 
+              src="/pmd_logo.png" 
+              alt="PMD Digital Media" 
+              className="h-10 sm:h-12 md:h-14 w-auto max-w-[220px] sm:max-w-[280px] md:max-w-[340px] object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'https://i.imgur.com/grxxwWI.png';
+              }}
+            />
           </div>
         </div>
         
