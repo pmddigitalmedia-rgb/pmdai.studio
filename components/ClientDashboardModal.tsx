@@ -24,8 +24,9 @@ export const ClientDashboardModal: React.FC<ClientDashboardModalProps> = ({ isOp
         const snap = await getDocs(q);
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setTransactions(list);
-      } catch (e) {
-        console.error("Failed to load tx:", e);
+      } catch (e: any) {
+        console.warn("Notice: Transactions not loaded or initialized:", e?.message || e);
+        setTransactions([]);
       } finally {
         setLoadingTx(false);
       }
@@ -36,7 +37,7 @@ export const ClientDashboardModal: React.FC<ClientDashboardModalProps> = ({ isOp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl text-slate-100 max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}

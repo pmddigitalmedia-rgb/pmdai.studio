@@ -126,10 +126,10 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
   return (
     <div 
       id={`image-item-${item.id}`}
-      className={`group relative flex flex-col rounded-[1.5rem] overflow-hidden bg-slate-900 border transition-all duration-300 
+      className={`group relative flex flex-col rounded-[1.5rem] overflow-hidden bg-slate-900 border transition-all duration-300 isolate 
       ${item.selected ? 'ring-2 ring-orange-500 border-orange-500 shadow-2xl shadow-orange-500/10' : 'border-white/5'}
       ${isActive ? 'bg-orange-500/10 shadow-[0_0_20px_rgba(249,115,22,0.15)] ring-1 ring-orange-500/50' : ''}
-      ${isDragTarget ? 'ring-4 ring-orange-400 scale-[1.02] z-50' : ''}`}
+      ${isDragTarget ? 'ring-4 ring-orange-400 scale-[1.02] z-20' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onDragOver={handleDragOver}
@@ -138,7 +138,7 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
     >
       {/* Aspect-Locked Container */}
       <div 
-        className="relative bg-slate-950 overflow-hidden cursor-pointer w-full" 
+        className="relative bg-slate-950 overflow-hidden cursor-pointer w-full isolate" 
         style={containerStyle}
         onClick={() => onToggleSelect(item.id)}
       >
@@ -206,7 +206,7 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
 
           {/* Configuration Overlay: Admin sees Engine Cost Breakdown in cents (¢); Client sees Credit Count Breakdown */}
           {isHovered && assignedPresets.length > 0 && (
-            <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md p-4 flex flex-col animate-fade-in-up pointer-events-none">
+            <div className="absolute inset-0 z-20 bg-slate-950/90 backdrop-blur-md p-4 flex flex-col animate-fade-in-up pointer-events-none">
               {/* Header: Engine Cost in cents for Admin, Credit Count for Client */}
               <div className="flex items-center justify-between gap-2 mb-2.5 border-b border-white/10 pb-2">
                 <div className="flex items-center gap-1.5">
@@ -345,7 +345,7 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
             </div>
           )}
 
-          <div className="absolute top-3 right-3 z-[60] flex flex-col items-end gap-1.5 ">
+          <div className="absolute top-3 right-3 z-30 flex flex-col items-end gap-1.5 ">
              {is360Image && (
                 <button
                   type="button"
@@ -365,7 +365,7 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
              )}
           </div>
           
-            <div className="absolute bottom-3 left-3 z-[60] flex flex-wrap gap-2 max-w-[90%] pointer-events-none">
+            <div className="absolute bottom-3 left-3 z-30 flex flex-wrap gap-2 max-w-[90%] pointer-events-none">
               {assignedPresets.map(p => {
                 // Determine high contrast classes based on the preset definition
                 const colorClasses = p.color.split(' ');
@@ -389,13 +389,13 @@ export const ImageGridItem: React.FC<ImageGridItemProps> = ({
             </div>
 
           {item.status === 'processing' && (
-              <div className="absolute inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 z-25 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center pointer-events-none">
                   <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
           )}
           
           {displayError && (
-              <div className="absolute inset-0 z-40 bg-red-950/80 backdrop-blur-sm flex items-center justify-center p-4 text-center overflow-auto pointer-events-none">
+              <div className="absolute inset-0 z-25 bg-red-950/80 backdrop-blur-sm flex items-center justify-center p-4 text-center overflow-auto pointer-events-none">
                   <span className="text-[10px] font-bold text-red-200 uppercase tracking-wider">{displayError}</span>
               </div>
           )}

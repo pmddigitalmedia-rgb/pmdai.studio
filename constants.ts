@@ -221,12 +221,12 @@ export const TOOL_ENGINE_COSTS: Record<string, ToolEngineCostInfo> = {
     category: 'image-diffusion'
   },
   object_removal: {
-    engine: 'FLUX.1 [dev] Fill',
+    engine: 'Bria Eraser',
     cost: 0.030,
     costString: '$0.030',
     centsString: '3.0¢',
     credits: 30,
-    pipeline: 'fal-ai/flux-lora-fill',
+    pipeline: 'fal-ai/bria/eraser',
     category: 'inpaint-fill'
   },
 
@@ -410,16 +410,16 @@ export const WEATHER_PRESETS: WeatherPreset[] = [
   {
     id: 'sun_drenched',
     label: 'Outdoor Sun Casting',
-    description: 'Floods outdoor photos with direct sunlight highlights and crisp architectural sun shadows while strictly preserving the exact original color temperature. To be used when there is no sky to be seen but you want sun on the ground.',
-    prompt: 'OUTDOOR SUN CASTING & RELIGHTING PROTOCOL: [USAGE_INSTRUCTION]: To be used when there is no sky to be seen but you want sun on the ground. [TASK]: Add high-contrast, directional direct sunlight highlights and crisp architectural sun-and-shade contrast to the outdoor scene and ground without altering color temperature. [NO_SKY_DEPENDENCY]: Do NOT look for, require, or modify any sky. Designed specifically for outdoor spaces (patios, courtyards, landscaped areas, facades, covered porches, side yards, gardens, outdoor kitchens, dining terraces) with little or no visible sky. [COLOR_TEMPERATURE_LOCK]: Strictly do NOT shift, warm, or change the color temperature, white balance, or hue of the image. Do NOT apply warm/golden hour casts, yellow filters, or orange tinting. Maintain the exact native chromatic balance and authentic material colors of the original photo. [LUMINANCE_&_CONTRAST_TRANSFORMATION]: Transform flat, overcast, or shaded ambient lighting by sculpting clean directional direct sunlight luminance and dynamic range across exterior walls, ground pavers, concrete, decking, lawn/turf, outdoor furniture, and textures while keeping color temperature unchanged. [SHADOW_SCULPTING]: Generate realistic, clean directional shadows, dappled foliage shade patterns from trees/canopies, and natural sunlit highlights. [STRUCTURAL_INTEGRITY]: Strictly preserve all architectural structures, building materials, vegetation species, outdoor furniture, and fixtures. Do not alter dimensions or add unrelated objects.',
+    description: 'Floods outdoor ground surfaces and facades with bright, vibrant midday sunlight and natural sunlit highlights without turning the scene to dusk or altering structure.',
+    prompt: 'OUTDOOR SUN CASTING & DAYLIGHT RELIGHTING PROTOCOL: [TASK]: Flood the outdoor scene, ground surfaces, and building facade with bright, radiant, natural midday sunlight and crisp sunlit highlights. [MIDDAY_EXPOSURE_LOCK]: Strictly maintain bright, clear daytime ambient exposure across the entire photo. STRICTLY FORBIDDEN: DO NOT darken the scene, DO NOT render dusk, twilight, evening, or deep shadowy blue-hour atmosphere. [NATURAL_SUNLIGHT_RELIGHTING]: Cast realistic, clean, warm 5500K midday sun illumination, bright direct light patches, and soft, natural cast shadows across pavers, turf/lawn, decking, patios, exterior walls, and outdoor furniture as seen on a clear, bright sunny afternoon. [SURFACE_PRESERVATION]: Preserve 100% of all architectural structures, building materials, vegetation species, outdoor furniture, and fixtures. Do not alter dimensions, materials, or introduce unrelated objects.',
     icon: 'M12 3v1.5m6.364 1.136l-1.06 1.06M21 12h-1.5m-1.136 6.364l-1.06-1.06M12 21v-1.5m-6.364-1.136l1.06-1.06M3 12h1.5m1.136-6.364l1.06 1.06M9 12a3 3 0 116 0 3 3 0 01-6 0z',
     color: 'bg-amber-500 text-white border-amber-400'
   },
   {
     id: 'window_splash',
     label: 'Indoor Sun',
-    description: 'Casts realistic natural sunlight and soft architectural window shadows into interior rooms across floors, rugs, and surfaces while strictly preserving room architecture, furniture, and original color temperature.',
-    prompt: 'INDOOR SUN & EXTERIOR WINDOW RELIGHTING PROTOCOL: [STRICT_OBJECT_IDENTITY_LOCK]: 100% PRESERVE AND KEEP ALL EXISTING OBJECTS, TREES, BRANCHES, LEAVES, FOLIAGE, LAWN, PATIO, BUILDINGS, AND LANDSCAPING COMPLETELY UNCHANGED. DO NOT REPLACE, REGENERATE, ALTER, SHIFT, OR INTRODUCE ANY NEW OBJECTS OR GEOMETRY. [COLOR_TEMPERATURE_LOCK]: Strictly do NOT shift, warm, or change the color temperature, white balance, or hue of the image. Maintain the exact same original color temperature and authentic material colors of the original photo. Do NOT apply yellow tinting, orange color casts, or heavy warming filters. [LIGHTING_ENHANCEMENT]: ONLY cast clean direct sunlight highlights and natural directional daylight exposure onto the surfaces of the existing trees, leaves, and exterior grounds seen through the window glass, preserving original color temperature identically. Keep window frames, mullions, glass reflections, and indoor room 100% identical.',
+    description: 'Casts realistic natural sunlight and soft architectural window shadows into interior rooms across floors, rugs, and surfaces while strictly preserving color temperature, room architecture, and window views.',
+    prompt: 'INDOOR SUNNY SPLASH & ARCHITECTURAL RELIGHTING PROTOCOL: [TASK]: Cast bright, realistic, natural midday direct sunlight streaming through the windows onto the interior room surfaces, creating natural angled sunlight patches and soft architectural window mullion shadow patterns across floors, rugs, and furniture. [STRICT_COLOR_TEMPERATURE_LOCK]: STRICTLY DO NOT CHANGE, WARM, OR SHIFT THE COLOR TEMPERATURE OR WHITE BALANCE OF THE ORIGINAL IMAGE. Absolutely NO yellow tinting, NO orange warming filters, NO amber casts. Keep the white balance, wall paint color temperature, and neutral tones 100% IDENTICAL to the source photo. [STRICT_WINDOW_AND_SCENERY_ZERO_ADJUSTMENT_RULE]: ABSOLUTELY DO NOT ADJUST, MODIFY, REDRAW, REPAINT, OR CHANGE THE WINDOWS, GLASS PANES, SILLS, FRAMES, OR ANY OUTDOOR SCENERY VISIBLE THROUGH THE GLASS IN ANY WAY. The window glass, transparency, and exterior view must remain 100% FROZEN, UNTOUCHED, AND IDENTICAL to the original photo. [STRICT_ARCHITECTURAL_PRESERVATION]: Zero architectural alterations. Absolutely DO NOT add, move, shift, or remove any walls, doors, doorways, windows, beams, columns, ceilings, baseboards, or room boundaries. Keep the exact physical room geometry, wall locations, and spatial structure 100% identical. [STRICT_FLOOR_AND_WALL_LOCK]: ABSOLUTELY DO NOT change, replace, restain, re-tile, or mutate existing flooring or wall paint. Keep all wall colors, wood grain, tile patterns, and carpet textures 100% identical to the source image. [SURFACE_RELIGHTING_ONLY]: Only illuminate existing interior surfaces with clean, neutral-balanced directional sunbeams without altering room colors. Preserve all furniture and decor in place.',
     icon: 'M12 3v1.5m6.364 1.136l-1.06 1.06M21 12h-1.5m-1.136 6.364l-1.06-1.06M12 21v-1.5m-6.364-1.136l1.06-1.06M3 12h1.5m1.136-6.364l1.06 1.06M9 12a3 3 0 116 0 3 3 0 01-6 0z',
     color: 'bg-orange-50 text-orange-600 border-orange-200'
   },
@@ -434,8 +434,8 @@ export const WEATHER_PRESETS: WeatherPreset[] = [
   },
   {
     id: 'furniture',
-    label: 'Modern Stage',
-    description: 'Adds modern furniture to empty or sparsely furnished rooms while strictly preserving all existing walls, windows, doors, and architecture.',
+    label: 'Virtual Staging',
+    description: 'Adds realistic furniture to empty or sparsely furnished rooms while strictly preserving all existing walls, windows, doors, and architecture.',
     prompt: 'VIRTUAL STAGING PROTOCOL: [TASK]: Virtually stage the empty {room} with {style} furniture. [STRICT_STRUCTURAL_PRESERVATION]: Zero architectural alterations. Absolutely DO NOT add, move, shift, or remove any walls, partition walls, half walls, archways, columns, posts, or room boundaries. Do NOT add new drywall or alter existing doorways, windows, beams, moldings, baseboards, or ceiling lines. Keep the exact physical room geometry and wall locations 100% identical. [STRICT_WALL_COLOR_LOCK]: Absolutely DO NOT alter, repaint, or change existing wall paint colors, accent walls, or wall textures. Keep all walls 100% identical in color and finish to the source photo. Only place freestanding furniture, area rugs, lighting, and decor onto existing open floor space and surfaces. [SCALE_DEPTH]: Prioritize architectural realism and correct 3D scale. All furniture pieces must be sized proportionally to the physical room dimensions. [FRAME_FREEDOM]: Allow furniture to be partially cut off by the frame edges if its realistic size requires it; never shrink items unnaturally to force them fully into view. [INTEGRITY]: KEEP original walls, floors, and windows exactly as they are.',
     icon: 'M15.75 6a2.25 2.25 0 0 0-2.25 2.25v1.5a2.25 2.25 0 0 0 2.25 2.25h1.5a2.25 2.25 0 0 0 2.25-2.25v-1.5A2.25 2.25 0 0 0 15.75 6ZM3 15.75A2.25 2.25 0 0 1 5.25 13.5h13.5A2.25 2.25 0 0 1 21 15.75V18a2.25 2.25 0 0 1-2.244 2.077H5.25A2.25 2.25 0 0 1 3 18v-2.25Z',
     color: 'bg-rose-500 text-white border-rose-400',
@@ -802,6 +802,7 @@ export const CREDIT_PACKS: CreditPack[] = [
     photoEdits: '~180 Photo Edits',
     popular: false,
     description: 'Perfect for single property listings, rapid sunny skies, and quick touchups.',
+    stripePaymentLink: 'https://buy.stripe.com/5kQcN5aKQcAC1eGgUSbwk00',
     features: [
       '5,400 AI Credits (~180 Photo Edits)',
       'Virtual Staging & Style Swapper (30-60 credits)',

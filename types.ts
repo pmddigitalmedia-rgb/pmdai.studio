@@ -220,4 +220,5 @@ export interface CreditPack {
   popular: boolean;
   description: string;
   features?: string[];
+  stripePaymentLink?: string;
 }

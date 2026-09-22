@@ -16,17 +16,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow create: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow delete: if isAdmin();
+      allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
 
     match /users/{userId}/transactions/{transactionId} {
-      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow create: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
   }
 }

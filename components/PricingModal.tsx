@@ -73,6 +73,18 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
     setPurchasing(pack.id);
 
     try {
+      // If a direct Stripe Payment Link is defined (e.g. https://buy.stripe.com/...), redirect immediately!
+      if (pack.stripePaymentLink) {
+        // Append user email and client reference ID if available for tracking
+        const url = new URL(pack.stripePaymentLink);
+        if (user.email) {
+          url.searchParams.set('prefilled_email', user.email);
+        }
+        url.searchParams.set('client_reference_id', user.uid);
+        window.location.href = url.toString();
+        return;
+      }
+
       if (!stripeStatus.configured) {
         // Fallback if Stripe key is not configured in environment
         setErrorNotice(
@@ -143,7 +155,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
   return (
     <div 
       id="pricing-modal-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
     >
       <div 
         id="pricing-modal-container"
@@ -316,7 +328,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
                     type="button"
                     id={`buy-stripe-btn-${pack.id}`}
                     onClick={() => {
-                      if (stripeStatus.configured) {
+                      if (pack.stripePaymentLink || stripeStatus.configured) {
                         handleStripeCheckout(pack);
                       } else {
                         // If Stripe isn't configured, offer sandbox top-up
@@ -335,12 +347,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
                         <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
                         <span>Connecting to Stripe...</span>
                       </>
-                    ) : stripeStatus.configured ? (
+                    ) : (pack.stripePaymentLink || stripeStatus.configured) ? (
                       <>
                         <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                           <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697.5 12.515.5 5.538.5 2.1 4.148 2.1 9.42c0 4.908 3.018 7.373 7.848 9.176 2.457.917 3.298 1.574 3.298 2.527 0 .963-.82 1.487-2.28 1.487-2.25 0-5.184-1.077-7.227-2.19l-.916 5.618C4.54 27.24 7.697 28 11.233 28c7.433 0 10.87-3.648 10.87-9.42 0-5.074-3.033-7.533-8.127-9.43z"/>
                         </svg>
-                        <span>Checkout with Stripe ({pack.price})</span>
+                        <span>Add {pack.credits.toLocaleString()} Credits ({pack.price})</span>
                       </>
                     ) : (
                       <>
@@ -350,7 +362,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onO
                   </button>
 
                   {/* Secondary Instant Sandbox Top-up (available for dev testing / preview mode) */}
-                  {stripeStatus.configured && (
+                  {(pack.stripePaymentLink || stripeStatus.configured) && (
                     <button
                       type="button"
                       id={`simulate-btn-${pack.id}`}

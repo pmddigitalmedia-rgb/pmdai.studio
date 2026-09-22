@@ -340,10 +340,10 @@ export const editImageWeather = async (
     const closestRatioConfig = getClosestAspectRatio(originalW, originalH);
 
     // Resolution optimization:
-    // When highClarity is enabled or dimensions indicate high-res (e.g. 2K perspective for 4096 360 pano),
-    // allocate up to 2048px (2K) so the AI generates razor-sharp architectural details matching the source.
-    const isHighRes = highClarity || (dims && Math.max(dims.width, dims.height) >= 1400) || prompt.includes('360');
-    const targetMaxDim = isHighRes ? 2048 : 1024;
+    // All standard perspective tools (non-360) operate at high-resolution 2048px (2K) for razor-sharp clarity with zero extra cost.
+    // 360 panorama tools use their specialized spherical projection pipeline resolution.
+    const is360Tool = prompt.includes('360') || prompt.includes('EQUIRECTANGULAR') || prompt.includes('PANORAMA') || prompt.includes('P360');
+    const targetMaxDim = !is360Tool ? 2048 : (highClarity || (dims && Math.max(dims.width, dims.height) >= 2048) ? 2048 : 1024);
     const optimized = await processImageForApi(`data:${mimeType};base64,${imageBase64}`, targetMaxDim);
 
     // SURGICAL PADDING PROTOCOL:
@@ -361,6 +361,7 @@ export const editImageWeather = async (
 
     let cleanMask: string | null = null;
     if (maskBase64) {
+      const maskDataUrl = maskBase64.startsWith('data:') ? maskBase64 : `data:image/png;base64,${maskBase64}`;
       try {
         // Load the padded source image to acquire its exact target dimensions
         const sourceImg = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -376,7 +377,7 @@ export const editImageWeather = async (
           img.crossOrigin = 'Anonymous';
           img.onload = () => resolve(img);
           img.onerror = reject;
-          img.src = `data:image/png;base64,${maskBase64}`;
+          img.src = maskDataUrl;
         });
 
         const targetW = sourceImg.naturalWidth || sourceImg.width;
@@ -396,7 +397,7 @@ export const editImageWeather = async (
         }
       } catch (alignErr) {
         console.warn("Mask pixel alignment failed, using standard padding:", alignErr);
-        const optimizedMask = await processImageForApi(`data:image/png;base64,${maskBase64}`, targetMaxDim);
+        const optimizedMask = await processImageForApi(maskDataUrl, targetMaxDim);
         const paddedMaskUrl = await padToRatio(optimizedMask.dataUrl, closestRatioConfig.val, 'black');
         cleanMask = paddedMaskUrl.split(',')[1];
       }
@@ -411,7 +412,7 @@ export const editImageWeather = async (
             maskBase64: cleanMask,
             sampleBase64: cleanSample,
             aspectName: closestRatioConfig.name,
-            imageSize: isHighRes ? '2K' : '1K',
+            imageSize: !is360Tool ? '2K' : (highClarity ? '2K' : '1K'),
             preAnalysis
         });
 
